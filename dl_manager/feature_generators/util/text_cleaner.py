@@ -21,7 +21,7 @@ __all__ = [
 
 
 def clean_issue_text(text: str) -> list[str]:
-    text = fix_punctuation(text)
+    #text = fix_punctuation(text)
     sentences = nltk.tokenize.sent_tokenize(text)
     return [f"{' '.join(gensim.utils.tokenize(sent))}" for sent in sentences]
 
@@ -58,6 +58,6 @@ class FormattingHandling(enum.Enum):
                 return 'remove'
 
 
-def fix_punctuation(text: str) -> str:
+def fix_contractions(text: str) -> str:
     text = contractions.fix(text)
     return text

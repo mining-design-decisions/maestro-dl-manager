@@ -27,7 +27,7 @@ from ..config import (
     EnumArgument,
     ArgumentConsumer,
 )
-from .util.text_cleaner import FormattingHandling, clean_issue_text
+from .util.text_cleaner import FormattingHandling, clean_issue_text, fix_contractions
 from .. import accelerator
 from ..model_io import InputEncoding, classification8_lookup
 from ..custom_kfold import stratified_trim
@@ -358,6 +358,11 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
                 description="See description of `replace-other-technology-list`.",
                 default="",
             ),
+            "text-features-no-formatting-removal": BoolArgument(
+                name="text-features-no-formatting-removal",
+                description="If True, formatting is not removed for features of type `Text`.",
+                default=False
+            )
         }
 
     def load_data_from_db(self, query: issue_db_api.Query, metadata_attributes):
@@ -517,7 +522,14 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             )
 
         if self.input_encoding_type() == InputEncoding.Text:
-            tokenized_issues = [[". ".join(text)] for text in texts]
+            summaries, descriptions = (list(x) for x in zip(*texts))
+            if self.__params['text-features-no-formatting-removal']:
+                handling_string = self.__params["formatting-handling"]
+                handling = FormattingHandling.from_string(handling_string)
+                summaries, descriptions = self.remove_formatting(summaries, descriptions, handling)
+            #summaries, descriptions = (list(x) for x in zip(*texts))
+            tokenized_issues = [f'{summary}. {description}'
+                                for summary, description in zip(summaries, descriptions)]
         else:
             # with cProfile.Profile() as p:
             #    tokenized_issues = self.preprocess(texts)
@@ -555,8 +567,26 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             ids=output["labels"]["issue_ids"],
         )
 
-    def apply_technology_substitutions(self):
-        pass
+    def remove_formatting(self,
+                          summaries: list[str],
+                          descriptions: list[str],
+                          handling: FormattingHandling) -> tuple[list[str], list[str]]:
+        summaries = accelerator.bulk_clean_text_parallel(
+            summaries,
+            handling.as_string(),
+            self.conf.get("system.resources.threads"),
+        )
+        summaries = [fix_contractions(summary) for summary in summaries]
+        descriptions = accelerator.bulk_clean_text_parallel(
+            descriptions,
+            handling.as_string(),
+            self.conf.get("system.resources.threads"),
+        )
+        descriptions = [
+            fix_contractions(description) for description in descriptions
+        ]
+        return summaries, descriptions
+
 
     def preprocess(self, issues, issue_keys):
         log.info("Preprocessing Features")
@@ -582,17 +612,8 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             tagger = accelerator.Tagger(weights, classes, tagdict)
 
             summaries, descriptions = (list(x) for x in zip(*issues))
-            summaries = accelerator.bulk_clean_text_parallel(
-                summaries,
-                handling.as_string(),
-                self.conf.get("system.resources.threads"),
-            )
+            summaries, descriptions = self.remove_formatting(summaries, descriptions, handling)
             summaries = [clean_issue_text(summary) for summary in summaries]
-            descriptions = accelerator.bulk_clean_text_parallel(
-                descriptions,
-                handling.as_string(),
-                self.conf.get("system.resources.threads"),
-            )
             descriptions = [
                 clean_issue_text(description) for description in descriptions
             ]

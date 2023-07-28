@@ -151,10 +151,12 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
         /,
         *,
         pretrained_generator_settings: dict | None = None,
+        pretrained_must_include_labels=False,   # Might need to include labels when used to generate separate test set
         **params,
     ):
         self.__params = params
         self.__pretrained = pretrained_generator_settings
+        self.__pretrained_with_labels = pretrained_must_include_labels
         self.__colors = None
         self.__keys = None
         self.conf = conf
@@ -387,7 +389,7 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             "Executive": [],
             "Non-Architectural": [],
         }
-        if self.pretrained is None:
+        if self.pretrained is None or self.__pretrained_with_labels:
             raw_labels = [issue.manual_label for issue in issues]
             for index, raw in enumerate(raw_labels):
                 self.update_labels(

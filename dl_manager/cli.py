@@ -419,7 +419,9 @@ def generate_features_and_get_data(
                 data = json.load(file)
             generator_class = feature_generators.generators[data["generator"]]
             generator = generator_class(
-                conf, pretrained_generator_settings=data["settings"]
+                conf,
+                pretrained_generator_settings=data["settings"],
+                pretrained_must_include_labels=True
             )
             dataset = generator.generate_features(testing_query, output_mode)
             if labels_test is not None:

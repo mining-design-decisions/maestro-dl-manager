@@ -151,7 +151,7 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
         /,
         *,
         pretrained_generator_settings: dict | None = None,
-        pretrained_must_include_labels=False,   # Might need to include labels when used to generate separate test set
+        pretrained_must_include_labels=False,  # Might need to include labels when used to generate separate test set
         **params,
     ):
         self.__params = params
@@ -363,8 +363,8 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             "text-features-no-formatting-removal": BoolArgument(
                 name="text-features-no-formatting-removal",
                 description="If True, formatting is not removed for features of type `Text`.",
-                default=False
-            )
+                default=False,
+            ),
         }
 
     def load_data_from_db(self, query: issue_db_api.Query, metadata_attributes):
@@ -525,13 +525,17 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
 
         if self.input_encoding_type() == InputEncoding.Text:
             summaries, descriptions = (list(x) for x in zip(*texts))
-            if self.__params['text-features-no-formatting-removal']:
+            if not self.__params["text-features-no-formatting-removal"]:
                 handling_string = self.__params["formatting-handling"]
                 handling = FormattingHandling.from_string(handling_string)
-                summaries, descriptions = self.remove_formatting(summaries, descriptions, handling)
-            #summaries, descriptions = (list(x) for x in zip(*texts))
-            tokenized_issues = [f'{summary}. {description}'
-                                for summary, description in zip(summaries, descriptions)]
+                summaries, descriptions = self.remove_formatting(
+                    summaries, descriptions, handling
+                )
+            # summaries, descriptions = (list(x) for x in zip(*texts))
+            tokenized_issues = [
+                f"{summary}. {description}"
+                for summary, description in zip(summaries, descriptions)
+            ]
         else:
             # with cProfile.Profile() as p:
             #    tokenized_issues = self.preprocess(texts)
@@ -569,10 +573,12 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             ids=output["labels"]["issue_ids"],
         )
 
-    def remove_formatting(self,
-                          summaries: list[str],
-                          descriptions: list[str],
-                          handling: FormattingHandling) -> tuple[list[str], list[str]]:
+    def remove_formatting(
+        self,
+        summaries: list[str],
+        descriptions: list[str],
+        handling: FormattingHandling,
+    ) -> tuple[list[str], list[str]]:
         summaries = accelerator.bulk_clean_text_parallel(
             summaries,
             handling.as_string(),
@@ -584,11 +590,8 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             handling.as_string(),
             self.conf.get("system.resources.threads"),
         )
-        descriptions = [
-            fix_contractions(description) for description in descriptions
-        ]
+        descriptions = [fix_contractions(description) for description in descriptions]
         return summaries, descriptions
-
 
     def preprocess(self, issues, issue_keys):
         log.info("Preprocessing Features")
@@ -614,7 +617,9 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             tagger = accelerator.Tagger(weights, classes, tagdict)
 
             summaries, descriptions = (list(x) for x in zip(*issues))
-            summaries, descriptions = self.remove_formatting(summaries, descriptions, handling)
+            summaries, descriptions = self.remove_formatting(
+                summaries, descriptions, handling
+            )
             summaries = [clean_issue_text(summary) for summary in summaries]
             descriptions = [
                 clean_issue_text(description) for description in descriptions

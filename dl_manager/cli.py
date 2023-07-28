@@ -202,6 +202,7 @@ def setup_app_constraints(app):
         "generate-embedding-internal", run_embedding_generation_command_internal
     )
     app.register_callback("metrics", run_metrics_calculation_command)
+    app.register_callback("confusion-matrix", compute_confusion_matrix)
 
     app.register_setup_callback(setup_security)
     app.register_setup_callback(setup_os)
@@ -251,6 +252,7 @@ def setup_storage(conf: Config):
         "generate-embedding",
         "generate-embedding-internal",
         "metrics",
+        "confusion-matrix",
     ]
     if (cmd := conf.get("system.management.active-command")) in endpoints_with_database:
         conf.clone(f"{cmd}.database-url", "system.storage.database-url")
@@ -421,7 +423,7 @@ def generate_features_and_get_data(
             generator = generator_class(
                 conf,
                 pretrained_generator_settings=data["settings"],
-                pretrained_must_include_labels=True
+                pretrained_must_include_labels=True,
             )
             dataset = generator.generate_features(testing_query, output_mode)
             if labels_test is not None:

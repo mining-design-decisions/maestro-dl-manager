@@ -533,7 +533,7 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
                 )
             # summaries, descriptions = (list(x) for x in zip(*texts))
             tokenized_issues = [
-                f"{summary}. {description}"
+                [f"{summary}. {description}"]
                 for summary, description in zip(summaries, descriptions)
             ]
         else:

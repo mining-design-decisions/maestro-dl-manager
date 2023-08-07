@@ -90,7 +90,7 @@ def combine_models(models, conf: Config, **params) -> tf.keras.Model:
     for i in range(1, params["number-of-hidden-layers"] + 1):
         layer_size = params[f"hidden-layer-{i}-size"]
         hidden = tf.keras.layers.Dense(
-            layer_size, activation=get_activation(f"layer-{i}-activation", **params)
+            layer_size, activation=get_activation(f"layer-activation", **params)
         )(hidden)
 
     outputs = model_builder.get_output_layer()(hidden)

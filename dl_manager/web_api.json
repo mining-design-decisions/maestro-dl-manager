@@ -270,6 +270,7 @@
           "nargs": "1",
           "null-unless": {"name": "ensemble-strategy", "value": "stacking"},
           "default": null,
+          "required": false,
           "options": [
             {
               "map-path": "dl_manager.classifiers.models",

@@ -274,10 +274,26 @@ class WebApp:
             )
         self._endpoints[endpoint.name] = endpoint
 
+        self._router.get(
+            '/' + endpoint.name + '/dynamic-enums',
+            description=f'Options for dynamic enums used in /{endpoint.name} endpoint'
+        )(endpoint.get_dynamic_enum_options)
+
     def _add_static_endpoints(self):
         @self._router.get("/endpoints")
         async def get_endpoints():
             return self._spec
+
+        @self._router.get('/constraints')
+        async def get_constraints():
+            constraints = []
+            for keys, _predicate, message in self._constraints:
+                obj = {
+                    'arguments': keys,
+                    'description': message
+                }
+                constraints.append(obj)
+            return constraints
 
         for cmd in self._spec["commands"]:
             for arg in cmd["args"]:
@@ -290,10 +306,11 @@ class WebApp:
         async def get_arglist():
             module, item = spec["options"][0]["map-path"].rsplit(".", maxsplit=1)
             mapping = getattr(importlib.import_module(module), item)
-            return {
+            payload = {
                 name: [arg.get_json_spec() for arg in cls.get_arguments().values()]
                 for name, cls in mapping.items()
             }
+            return payload
 
     def register_callback(self, event, func):
         self._callbacks[event] = func
@@ -355,6 +372,7 @@ class WebApp:
 
 
 class _Endpoint:
+
     def __init__(self, spec, config_factory: ConfigFactory, callback):
         self.name = spec["name"]
         log.info(f"Registering endpoint {self.name!r}")
@@ -363,6 +381,9 @@ class _Endpoint:
         self.private = spec["private"]
         validators = [_ArgumentValidator(arg) for arg in self._args]
         self._validators = {arg.name: arg for arg in validators}
+        self._dyn_enums = {val.name: val.get_dynamic_enum_options()
+                           for val in validators
+                           if val.dtype == 'dynamic_enum'}
         for v in self._validators.values():
             if v.depends is None:
                 continue
@@ -407,6 +428,9 @@ class _Endpoint:
             )
         payload = await req.json()
         return self.invoke_with_json(payload)
+
+    async def get_dynamic_enum_options(self):
+        return self._dyn_enums
 
     def invoke_with_json(self, payload):
         conf = self._config_factory.build_config(self.name, "system")
@@ -578,6 +602,11 @@ class _ArgumentValidator:
             module, item = self._options[0].rsplit(".", maxsplit=1) # type: ignore
             self._options[0] = set(getattr(importlib.import_module(module), item))
 
+    def get_dynamic_enum_options(self):
+        if self._type != 'dynamic_enum':
+            raise ValueError('Not a dynamic enum')
+        return self._options[0]
+
     @property
     def depends(self):
         if self._null_if:
@@ -744,7 +773,6 @@ class Argument(abc.ABC):
     def validate(self, value, *, tuning=False):
         pass
 
-    @property
     @abc.abstractmethod
     def legal_values(self):
         pass
@@ -757,7 +785,8 @@ class Argument(abc.ABC):
             "type": self._data_type.__name__,
             "has-default": self.has_default,
             "default": self._default if self.has_default else None,
-            "readable-options": self.legal_values,
+            "readable-options": self.legal_values(),
+            "supported-hyper-param-specs": self.supported_hyper_param_specs()
         }
 
     @staticmethod
@@ -833,7 +862,7 @@ class IntArgument(Argument):
         hi = self._max if self._max is not None else float("inf")
         if math.isinf(lo) or math.isinf(hi):
             return f"[{lo}, {hi}]"
-        return range(self._min, self._max + 1)
+        return list(range(self._min, self._max + 1))
 
     def get_json_spec(self):
         return super().get_json_spec() | {"minimum": self._min, "maximum": self._max}
@@ -976,7 +1005,6 @@ class NestedArgument(Argument):
         except fastapi.HTTPException as e:
             self.raise_invalid(e.detail)
 
-    @property
     def legal_values(self):
         return {}
 

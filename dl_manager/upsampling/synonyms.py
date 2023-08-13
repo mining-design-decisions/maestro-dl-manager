@@ -134,7 +134,7 @@ class SynonymUpSampler(AbstractUpSampler):
 
     @staticmethod
     def get_arguments():
-        return super().get_arguments() | {
+        return super(SynonymUpSampler, SynonymUpSampler).get_arguments() | {
             'word-embedding': StringArgument(
                 name='word-embedding',
                 description='Path to the word embedding file to use to determine synonyms',

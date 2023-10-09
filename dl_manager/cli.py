@@ -23,7 +23,7 @@ import numpy
 
 import issue_db_api
 
-from . import classifiers, kw_analyzer, model_manager
+from . import classifiers,  model_manager
 
 from . import feature_generators
 from .model_io import OutputMode
@@ -32,6 +32,9 @@ from . import embeddings
 
 from . import learning
 from .config import WebApp, Config
+from .config import BooleanConstraint, MutuallyExclusive, Forbids
+from .config import Equal, NotEqual, Or, ListContains, ListNotContains
+from .config import Constant, ArgumentRef, LengthOfArgument
 from .logger import get_logger
 from . import metrics
 
@@ -70,26 +73,11 @@ def build_app():
 def setup_app_constraints(app):
     def add_eq_len_constraint(p, q):
         app.add_constraint(
-            lambda x, y: len(x) == len(y),
-            "Argument lists must have equal length.",
-            p,
-            q,
+            BooleanConstraint(
+                Equal(LengthOfArgument(p), LengthOfArgument(q)),
+                message=f'Argument lists {p} and {q} must have equal length.'
+            )
         )
-
-    def add_min_delta_constraints(cmd):
-        app.add_constraint(
-            lambda deltas, attrs: len(deltas) == len(attrs) or len(deltas) == 1,
-            "Requirement not satisfied: len(min-delta) = len(trimming-attributes) or len(min-delta) = 1",
-            f"{cmd}.min-delta",
-            f"{cmd}.trimming-attribute",
-        )
-
-    add_min_delta_constraints("run_analysis.summarize")
-    add_min_delta_constraints("run_analysis.plot")
-    add_min_delta_constraints("run_analysis.plot-attributes")
-    add_min_delta_constraints("run_analysis.confusion")
-    add_min_delta_constraints("run_analysis.compare")
-    add_min_delta_constraints("run_analysis.compare-stats")
 
     add_eq_len_constraint("run.classifier", "run.input_mode")
     add_eq_len_constraint(
@@ -97,92 +85,114 @@ def setup_app_constraints(app):
     )
 
     app.add_constraint(
-        lambda ensemble, test_sep: ensemble == "none" or not test_sep,
-        "Cannot use ensemble when using separate testing mode.",
-        "run.ensemble-strategy",
-        "run.test-separately",
+        MutuallyExclusive(
+            Equal(ArgumentRef('run.ensemble-strategy'), Constant('none')),
+            Equal(ArgumentRef('run.test-separately'), Constant(True)),
+            message='Cannot use ensemble when using separate testing mode.'
+        )
     )
     app.add_constraint(
-        lambda store, test_separately: not (store and test_separately),
-        "Cannot store model when using separate testing mode.",
-        "run.store-model",
-        "run.test-separately",
+        MutuallyExclusive(
+            Equal(ArgumentRef('run.store-model'), Constant(True)),
+            Equal(ArgumentRef('run.test-separately'), Constant(True)),
+            message='Cannot store model when using separate testing mode.'
+        )
     )
     app.add_constraint(
-        lambda store, k: not (store and k > 0),
-        "Cannot store model when using k-fold cross validation",
-        "run.store-model",
-        "run.k-cross",
+        MutuallyExclusive(
+            Equal(ArgumentRef('run.store-model'), Constant(True)),
+            NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
+            Equal(ArgumentRef('run.cross-project'), Constant(True)),
+            message='Cannot store model when using k-fold cross validation or project cross validation.'
+        )
     )
     app.add_constraint(
-        lambda cross_project, k: k == 0 or not cross_project,
-        "Cannot use --k-cross and --cross-project at the same time.",
-        "run.cross-project",
-        "run.k-cross",
+        MutuallyExclusive(
+            Equal(ArgumentRef('run.cross-project'), Constant(True)),
+            NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
+            message='Cannot use k-cross and cross-project at the same time.'
+        )
     )
     app.add_constraint(
-        lambda k, quick_cross: not quick_cross or k > 0,
-        "Must specify k when running with --quick-cross",
-        "run.k-cross",
-        "run.quick-cross",
+        Forbids(
+            main=Equal(ArgumentRef('run.quick-cross'), Constant(True)),
+            message='Must specify k-cross when running with quick-cross.',
+            forbids=[
+                Equal(ArgumentRef('run.k-cross'), Constant(0)),
+            ]
+        )
     )
     app.add_constraint(
-        lambda k, cross_project: k == 0 or not cross_project,
-        "k-cross must be 0 when running with --cross-project",
-        "run.k-cross",
-        "run.cross-project",
+        Forbids(
+            main=Equal(ArgumentRef('run.store-model'), Constant(True)),
+            message='model-id must be given when storing a model.',
+            forbids=[
+                Equal(ArgumentRef('run.model-id'), Constant(''))
+            ]
+        )
     )
     app.add_constraint(
-        lambda do_save, model_id: (not do_save) or (do_save and model_id),
-        "--model-id must be given when storing a model.",
-        "run.store-model",
-        "run.model-id",
+        Forbids(
+            main=Equal(ArgumentRef('run.store-model'), Constant(True)),
+            message='May not use cache-features when using store-model.',
+            forbids=[
+                Equal(ArgumentRef('run.cache-features'), Constant(True))
+            ],
+            add_reverse_constraints=True
+        )
     )
     app.add_constraint(
-        lambda do_save, cache_features: (not do_save)
-        or (do_save and not cache_features),
-        "May not use --cache-features when using --store-model.",
-        "run.store-model",
-        "run.cache-features",
+        Forbids(
+            main=Equal(ArgumentRef('run.analyze-keywords'), Constant(True)),
+            message='Can only analyze keywords when using a convolutional model',
+            forbids=[
+                ListNotContains(ArgumentRef('run.classifiers'), Constant('LinearConv1Model'))
+            ],
+            add_reverse_constraints=True
+        )
     )
     app.add_constraint(
-        lambda do_save, k, cross_project, quick_cross: (not do_save)
-        or (k == 0 and not cross_project and not quick_cross),
-        "Cannot run cross validation (or cross study) scheme when saving a model.",
-        "run.store-model",
-        "run.k-cross",
-        "run.cross-project",
-        "run.quick-cross",
+        Forbids(
+            main=Equal(ArgumentRef('run.analyze-keywords'), Constant(True)),
+            message='Cannot perform cross validation when extracting keywords.',
+            forbids=[
+                NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
+                Equal(ArgumentRef('run.cross-project'), Constant(True))
+            ],
+            add_reverse_constraints=True
+        )
     )
     app.add_constraint(
-        lambda do_analyze, _, conf: not do_analyze
-        or kw_analyzer.model_is_convolution(conf),
-        "Can only analyze keywords when using a convolutional model",
-        "run.analyze-keywords",
-        "run.classifier",
-        "#config",
+        Forbids(
+            main=Equal(ArgumentRef('run.k-cross'), Constant(True)),
+            message='Must test with training data when performing cross validation!',
+            forbids=[
+                Equal(ArgumentRef('test-with-training-data'), Constant(False))
+            ],
+            add_reverse_constraints=True
+        )
     )
     app.add_constraint(
-        lambda do_analyze, conf: (not do_analyze) or kw_analyzer.doing_one_run(conf),
-        "Can not perform cross validation when extracting keywords",
-        "run.analyze-keywords",
-        "#config",
+        Forbids(
+            main=Equal(ArgumentRef('run.cross-project'), Constant(True)),
+            message='Must test with training data when performing cross validation!',
+            forbids=[
+                Equal(ArgumentRef('test-with-training-data'), Constant(False))
+            ],
+            add_reverse_constraints=True
+        )
     )
     app.add_constraint(
-        lambda k_cross, test_with_training_data: k_cross == 0
-        or test_with_training_data,
-        "Must test with training data when performing cross validation!",
-        "run.k-cross",
-        "run.test-with-training-data",
-    )
-    app.add_constraint(
-        lambda ontology_id, apply_ontology, models: True
-        if "OntologyFeatures" not in models and not apply_ontology
-        else ontology_id != "",
-        "Ontology class file must be given when applying ontology classes or using ontology features",
-        "run.ontology-classes",
-        "run.apply-ontology-classes",
-        "run.classifier",
+        Forbids(
+            main=Or(
+                Equal(ArgumentRef('run.apply-ontology-classes'), Constant(True)),
+                ListContains(ArgumentRef('run.classifiers'), Constant('OntologyFeatures'))
+            ),
+            message='Ontology class file must be given when applying ontology classes or using ontology features.',
+            forbids=[
+                Equal(ArgumentRef('run.ontology-classes'), Constant(''))
+            ]
+        )
     )
 
     # Enforced using null-if

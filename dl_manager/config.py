@@ -23,6 +23,7 @@ import importlib
 import itertools
 import json
 import math
+import re
 import typing
 
 import fastapi
@@ -1127,10 +1128,20 @@ class Argument(abc.ABC):
 
     @abc.abstractmethod
     def get_json_spec(self):
+        pattern = re.compile(r'([A-Z])')
+        parts = [
+            x
+            for x in pattern.split(self.__class__.__name__.replace('Argument', ''))
+            if x
+        ]
+        arg_type = '-'.join(
+            f'{x}{y}' for x, y in zip(parts[::2], parts[1::2])
+        )
         return {
             "name": self._name,
             "description": self._description,
             "type": self._data_type.__name__,
+            'argument_type': arg_type,
             "has-default": self.has_default,
             "default": self._default if self.has_default else None,
             "readable-options": self.legal_values(),
@@ -1292,6 +1303,30 @@ class StringArgument(Argument):
         return ["values"]
 
 
+class JSONArgument(Argument):
+
+    def __init__(self,
+                 name: str,
+                 description: str,
+                 schema: object,
+                 default: Argument._NOT_SET):
+        super().__init__(name, description, object, default)
+
+
+    def validate(self, value, *, tuning=False):
+        pass
+
+    def legal_values(self):
+        pass
+
+    def get_json_spec(self):
+        pass
+
+    @staticmethod
+    def supported_hyper_param_specs():
+        pass
+
+
 class QueryArgument(Argument):
     def __init__(self, name: str, description: str, default=Argument._NOT_SET):
         super().__init__(name, description, issue_db_api.Query, default)
@@ -1339,13 +1374,6 @@ class NestedArgument(Argument):
         self._hyper_parser = HyperArgumentListParser(name, self._spec, multi_valued=True)
 
     def validate(self, value, *, tuning=False):
-        # if not isinstance(value, dict):
-        #     self.raise_invalid(f'Expected a dictionary, got {value.__class__.__name__}')
-        # if len(value) != 1:
-        #     self.raise_invalid(f'Expected a single key, got {len(value)}')
-        # key, nested = next(iter(value.items()))
-        # if key not in self._spec:
-        #     self.raise_invalid(f'Illegal key {key!r}')
         try:
             if tuning:
                 return self._hyper_parser.validate(value)

@@ -1,5 +1,9 @@
 import random
 
+from ..config.core import Config
+from ..config.arguments import Argument
+from ..config.constraints import Constraint
+
 from . import base
 
 
@@ -19,6 +23,10 @@ class RandomUpSampler(base.AbstractUpSampler):
             )
         )
 
-    @staticmethod
-    def get_arguments():
-        return {}
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls):
+        return super().get_arguments()

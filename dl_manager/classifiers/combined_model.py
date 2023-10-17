@@ -1,7 +1,7 @@
 import tensorflow as tf
 import keras_tuner
 
-from ..config import Config
+from ..config.core import Config
 from .fully_connected_model import FullyConnectedModel
 from ..model_io import InputEncoding, OutputMode
 from .model import (

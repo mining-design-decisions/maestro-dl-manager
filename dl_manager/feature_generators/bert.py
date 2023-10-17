@@ -1,6 +1,7 @@
 from .generator import FeatureEncoding
 from ..model_io import InputEncoding
-from ..config import Argument
+from ..config.arguments import Argument
+from ..config.constraints import Constraint
 from .word2vec import AbstractFeatureGenerator
 from transformers import AutoTokenizer
 
@@ -39,6 +40,10 @@ class Bert(AbstractFeatureGenerator):
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Bert
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(Bert, Bert).get_arguments()

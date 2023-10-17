@@ -3,7 +3,8 @@ import tensorflow as tf
 from transformers import TFAutoModelForSequenceClassification
 
 from .model import AbstractModel, get_tuner_values, get_tuner_optimizer
-from ..config import Argument, IntArgument
+from ..config.arguments import Argument, IntArgument
+from ..config.constraints import Constraint
 from ..model_io import InputEncoding
 
 
@@ -75,6 +76,10 @@ class Bert(AbstractModel):
     @staticmethod
     def input_must_support_convolution() -> bool:
         return False
+
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
 
     @classmethod
     def get_arguments(cls) -> dict[str, Argument]:

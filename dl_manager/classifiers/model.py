@@ -13,7 +13,7 @@ import numpy
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from ..config import (
+from ..config.arguments import (
     Argument,
     BoolArgument,
     StringArgument,
@@ -23,6 +23,7 @@ from ..config import (
     IntArgument,
     NestedArgument,
 )
+from ..config.constraints import Constraint
 from ..model_io import InputEncoding, OutputEncoding
 
 
@@ -232,6 +233,11 @@ class AbstractModel(abc.ABC, ArgumentConsumer):
         auxiliary functions get_input_layer and
         get_output_layer.
         """
+
+    @classmethod
+    @abc.abstractmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return []
 
     @classmethod
     @abc.abstractmethod

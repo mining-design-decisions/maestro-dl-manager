@@ -31,7 +31,7 @@ import issue_db_api
 
 from .model_io import OutputMode
 
-from .config import Config
+from .config.core import Config
 from . import stacking
 from .metrics.metric_logger import PredictionLogger
 from . import metrics

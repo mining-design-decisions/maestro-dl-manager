@@ -3,7 +3,9 @@ import json
 import pathlib
 
 from .embedding_generator import AbstractEmbeddingGenerator
-from ..config import Argument, IntArgument, Config
+from ..config.arguments import Argument, IntArgument
+from ..config.core import Config
+from ..config.constraints import Constraint
 
 
 class DictionaryGenerator(AbstractEmbeddingGenerator):
@@ -29,8 +31,12 @@ class DictionaryGenerator(AbstractEmbeddingGenerator):
         with open(path, "w") as file:
             json.dump(dictionary, file)
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(DictionaryGenerator, DictionaryGenerator).get_arguments() | {
             "min-doc-count": IntArgument(
                 name="min-doc-count",

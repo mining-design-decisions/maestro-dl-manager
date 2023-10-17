@@ -4,7 +4,8 @@ import os
 
 import issue_db_api
 
-from ..config import Argument, StringArgument
+from ..config.arguments import Argument, StringArgument
+from ..config.constraints import Constraint
 from .generator import AbstractFeatureGenerator, FeatureEncoding
 from ..embeddings.util import load_embedding
 from ..model_io import InputEncoding
@@ -77,8 +78,12 @@ class TfidfGenerator(AbstractFeatureGenerator):
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Numerical
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(TfidfGenerator, TfidfGenerator).get_arguments() | {
             'dictionary-id': StringArgument(
                 name='dictionary-id',

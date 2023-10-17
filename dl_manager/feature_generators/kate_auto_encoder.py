@@ -1,4 +1,5 @@
-from ..config import Argument, IntArgument
+from ..config.arguments import Argument, IntArgument
+from ..config.constraints import Constraint
 from .abstract_auto_encoder import AbstractAutoEncoder
 from ..model_io import InputEncoding
 from .. import data_splitting
@@ -106,6 +107,10 @@ class KateAutoEncoder(AbstractAutoEncoder):
         ######################################################################
         # return result
         return encoder
+
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
 
     @classmethod
     def get_arguments(cls) -> dict[str, Argument]:

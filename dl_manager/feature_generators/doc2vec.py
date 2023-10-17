@@ -4,7 +4,8 @@ import issue_db_api
 from gensim.models.doc2vec import Doc2Vec as GensimDoc2Vec
 
 
-from ..config import Argument, IntArgument, StringArgument
+from ..config.arguments import Argument, IntArgument, StringArgument
+from ..config.constraints import Constraint
 from .generator import AbstractFeatureGenerator, FeatureEncoding
 from ..embeddings.util import load_embedding
 from ..model_io import InputEncoding
@@ -72,8 +73,12 @@ class Doc2Vec(AbstractFeatureGenerator):
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Numerical
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return {
             'vector-length': IntArgument(
                 description='specify the length of the output vector',

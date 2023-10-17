@@ -1,7 +1,8 @@
 import tensorflow as tf
 import keras_tuner
 
-from ..config import Argument, IntArgument, EnumArgument, FloatArgument
+from ..config.arguments import Argument, IntArgument, EnumArgument, FloatArgument
+from ..config.constraints import Constraint
 from .model import (
     AbstractModel,
     get_tuner_values,
@@ -144,6 +145,10 @@ class FullyConnectedModel(AbstractModel):
     @staticmethod
     def input_must_support_convolution() -> bool:
         return False
+
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
 
     @classmethod
     def get_arguments(cls) -> dict[str, Argument]:

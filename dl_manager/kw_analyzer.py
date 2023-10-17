@@ -12,7 +12,7 @@ from scipy.special import softmax, expit
 
 from .classifiers import models
 from .model_io import OutputMode, OutputEncoding
-from .config import Config
+from .config.core import Config
 from . import data_manager_bootstrap
 
 import tensorflow as tf

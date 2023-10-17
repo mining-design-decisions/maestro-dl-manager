@@ -3,7 +3,9 @@ import abc
 import numpy
 
 from ..model_io import OutputMode
-from ..config import Config, Argument, ArgumentConsumer
+from ..config.core import Config
+from ..config.arguments import ArgumentConsumer, Argument
+from ..config.constraints import Constraint
 
 
 class AbstractUpSampler(abc.ABC, ArgumentConsumer):
@@ -66,7 +68,12 @@ class AbstractUpSampler(abc.ABC, ArgumentConsumer):
     def upsample_class(self, indices, target, labels, keys, *features):
         pass
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def get_arguments() -> dict[str, Argument]:
+    def get_constraints(cls) -> list[Constraint]:
+        return []
+
+    @classmethod
+    @abc.abstractmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return {}

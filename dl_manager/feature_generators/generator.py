@@ -19,7 +19,7 @@ import nltk
 
 import issue_db_api
 
-from ..config import (
+from ..config.arguments import (
     Argument,
     BoolArgument,
     IntArgument,
@@ -27,6 +27,7 @@ from ..config import (
     EnumArgument,
     ArgumentConsumer,
 )
+from ..config.constraints import Constraint
 from .util.text_cleaner import FormattingHandling, clean_issue_text, fix_contractions
 from .. import accelerator
 from ..model_io import InputEncoding, classification8_lookup
@@ -36,7 +37,7 @@ from .util.technology_replacer import (
     replace_technologies,
     get_filename as get_technology_file_filename,
 )
-from ..config import Config
+from ..config.core import Config
 from ..logger import get_logger, timer
 from ..data_manager import Dataset
 
@@ -286,9 +287,14 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
     def feature_encoding() -> FeatureEncoding:
         pass
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def get_arguments() -> dict[str, Argument]:
+    def get_constraints(cls) -> list[Constraint]:
+        return []
+
+    @classmethod
+    @abc.abstractmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return {
             "max-len": IntArgument(
                 name="max-len",

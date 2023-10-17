@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import abc
-import collections
-import logging 
-import typing
-
+import graphlib
+import logging
+import warnings
 
 from .arguments import Argument, NestedArgument
 from .constraints import Constraint
+from .core import ConfigFactory, NoSuchSetting, NotSet
 from . import schemas
 
 
@@ -83,6 +83,7 @@ class ArgumentListParser:
                     self._raise_invalid('Single-valued argument list may not contain a default section.')
                 defaults = self._validate_global_defaults(args)
         self._apply_defaults(args_by_instance, default_by_class, defaults)
+        self.impose_constraints(args_by_instance)
         return args_by_instance
 
 
@@ -115,22 +116,41 @@ class ArgumentListParser:
         return self._validate_args(result, args)
 
     def _validate_args(self, cls, obj):
+        self._log.info(f'Parsing argument list for class {cls.__name__}')
         args = cls.get_arguments()
-        required = {arg.argument_name for arg in args.values() if not arg.has_default}
         result = {}
-        for key, value in obj.items():
-            if key not in args:
-                self._raise_invalid(f"Unknown argument {key} for {cls.__name__}")
-            result[key] = self.validate_value(args[key], value)
-            self._log.info(f"Parsed argument {key!r}: {result[key]}")
-
-        for arg in args.values():
-            if arg.argument_name not in result and arg.has_default:
-                result[arg.argument_name] = self.validate_default(arg, arg.default)
-        missing = required - set(result)
-        if missing:
-            self._raise_invalid(f'Missing arguments for {cls.__name__}: {", ".join(missing)}')
+        for arg_name in self._sort_args(args):
+            arg = args[arg_name]
+            try:
+                if not arg.is_enabled(ConfigFactory.dict_config(result)):
+                    self._log.info(f'Skipping disabled argument: {arg_name}')
+            except (NoSuchSetting, NotSet) as e:
+                raise ValueError(
+                    f'Error while evaluating enablement constraint. '
+                    f'Is one of the required arguments not enabled?') from e
+            if arg_name not in obj:
+                if arg.has_default:
+                    parsed = self.validate_default(arg, arg.default)
+                    result[arg_name] = parsed
+                    self._log.info(f'Assigned default for argument {arg_name}: {parsed}')
+                else:
+                    self._raise_invalid(f'Missing required argument {arg_name} for {cls.__name__}')
+            else:
+                parsed = self.validate_value(arg, obj[arg_name])
+                result[arg_name] = parsed
+                self._log.info(f'Validated value for argument {arg_name}: {parsed}')
         return result
+
+    def _sort_args(self, args: dict[str, Argument]) -> list[str]:
+        graph = {}
+        for name, arg in args.items():
+            graph[name] = set(arg.depends_on())
+        sorter = graphlib.TopologicalSorter(graph)
+        try:
+            return list(sorter.static_order())
+        except graphlib.CycleError as e:
+            msg = 'Cannot parse arguments because of cycle in enabling conditions'
+            raise Exception(msg) from e
 
     def _apply_defaults(self, args_by_instance, defaults_by_class, defaults):
         for cls_name, value in defaults_by_class.items():
@@ -166,6 +186,8 @@ class ArgumentListParser:
                 {"type": "values", "options": {"values": [argument.validate(value, tuning=True)]}},
             )
             return self._validate_tunable(argument, value)
+        if isinstance(argument, NestedArgument):
+            return argument.default
         return argument.validate(value)
 
     # ----- Tuner Validation Logic  -----
@@ -248,6 +270,18 @@ class ArgumentListParser:
             options["sampling"] = "linear"
         return result
 
-    # ----- Constraint Logic -----
+    # ----- Constraint logic -----
 
+    def impose_constraints(self, args_by_instance):
+        if self._tunable:
+            warnings.warn('Constraints are not imposed in tunable argument lists.')
+            return
+        self._impose_constraints_single_valued(args_by_instance)
 
+    def _impose_constraints_single_valued(self, args_by_instance):
+        for cls, indices in args_by_instance.items():
+            for index, instance_args in indices.items():
+                constraints: list[Constraint] = cls.get_constraints()
+                conf = ConfigFactory.dict_config(instance_args)
+                for constraint in constraints:
+                    constraint.impose(conf)

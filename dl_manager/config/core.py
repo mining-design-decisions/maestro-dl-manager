@@ -23,8 +23,21 @@ class IllegalNamespace(Exception):
 
 
 class ConfigFactory:
+
     def __init__(self):
         self._namespace = {}
+
+    @classmethod
+    def dict_config(cls, d):
+        self = cls()
+        namespace = '$dict'
+        self.register_namespace(namespace)
+        for key in d:
+            self.register(f'{namespace}.{key}')
+        config = self._build_dict_config(namespace)
+        for key, value in d:
+            config.set(key, value)
+        return config
 
     @staticmethod
     def _normalize_name(x: str) -> str:
@@ -62,13 +75,19 @@ class ConfigFactory:
         current[parts[-1]] = None
 
     def build_config(self, *namespaces) -> Config:
+        return Config(*self._prepare_config(*namespaces))
+
+    def _build_dict_config(self, namespace) -> _ConfigDictProxy:
+        return _ConfigDictProxy(*self._prepare_config(namespace), prefix=namespace)
+
+    def _prepare_config(self, *namespaces):
         legal = [self._normalize_name(n) for n in namespaces]
         for n in legal:
             if "." in n:
                 raise ValueError(
                     f"Can only register top-level namespaces as legal, not {n}"
                 )
-        return Config(legal, self._namespace, self._new_namespace_tree(self._namespace))
+        return legal, self._namespace, self._new_namespace_tree(self._namespace)
 
     def _new_namespace_tree(self, obj):
         if obj is None:
@@ -84,8 +103,7 @@ class Config:
         self._namespaces = namespaces
         self._data = data
 
-    @staticmethod
-    def _normalize_name(x):
+    def _normalize_name(self, x):
         return x.lower().replace("-", "_").split(".")
 
     def _resolve(self, name, action, path):
@@ -139,3 +157,13 @@ class Config:
             if prefix is not None:
                 key = f"{prefix}.{key}"
             self.set(key, value)
+
+
+class _ConfigDictProxy(Config):
+
+    def __init__(self, legal_namespaces, namespaces, data, *, prefix):
+        super().__init__(legal_namespaces, namespaces, data)
+        self._prefix = prefix
+
+    def _normalize_name(self, x):
+        return [self._prefix, x]

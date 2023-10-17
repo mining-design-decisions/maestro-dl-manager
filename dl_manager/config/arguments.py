@@ -28,7 +28,7 @@ class Argument(abc.ABC):
         self._description = description
         self._data_type = data_type
         self._default = default
-        self._enabled_if = enabled_if
+        self.enabled_if = enabled_if
 
     @property
     def argument_name(self):
@@ -51,12 +51,12 @@ class Argument(abc.ABC):
         return self._data_type
 
     def depends_on(self) -> list[str]:
-        if self._enabled_if is None:
+        if self.enabled_if is None:
             return []
-        return self._enabled_if.involved_arguments
+        return self.enabled_if.involved_arguments
 
     def is_enabled(self, conf: core.Config) -> bool:
-        return self._enabled_if is None or self._enabled_if.impose(conf)
+        return self.enabled_if is None or self.enabled_if.impose(conf)
 
     @abc.abstractmethod
     def validate(self, value, *, tuning=False):
@@ -85,7 +85,8 @@ class Argument(abc.ABC):
             "has-default": self.has_default,
             "default": self._default if self.has_default else None,
             "readable-options": self.legal_values(),
-            "supported-hyper-param-specs": self.supported_hyper_param_specs()
+            "supported-hyper-param-specs": self.supported_hyper_param_specs(),
+            'enabled-if': self.enabled_if.to_json()
         }
 
     @staticmethod
@@ -106,7 +107,8 @@ class ListArgument(Argument):
         super().__init__(inner.argument_name,
                          f'{inner.argument_description} (multi-valued)',
                          list,
-                         default)
+                         default,
+                         enabled_if=inner.enabled_if)
         self._inner = inner
 
     def validate(self, value, *, tuning=False):
@@ -135,9 +137,10 @@ class FloatArgument(Argument):
         description: str,
         default=Argument._NOT_SET,
         minimum: float | None = None,
-        maximum: float | None = None,
+        maximum: float | None = None, *,
+        enabled_if: constraints.Constraint | None = None
     ):
-        super().__init__(name, description, float, default)
+        super().__init__(name, description, float, default, enabled_if=enabled_if)
         self._min = minimum
         self._max = maximum
 
@@ -170,9 +173,10 @@ class IntArgument(Argument):
         description: str,
         default=Argument._NOT_SET,
         minimum: int | None = None,
-        maximum: int | None = None,
+        maximum: int | None = None, *,
+        enabled_if: constraints.Constraint | None = None
     ):
-        super().__init__(name, description, int, default)
+        super().__init__(name, description, int, default, enabled_if=enabled_if)
         self._min = minimum
         self._max = maximum
 
@@ -206,9 +210,10 @@ class EnumArgument(Argument):
         name: str,
         description: str,
         default=Argument._NOT_SET,
-        options: list[str] = None,
+        options: list[str] = None, *,
+        enabled_if: constraints.Constraint | None = None
     ):
-        super().__init__(name, description, str, default)
+        super().__init__(name, description, str, default, enabled_if=enabled_if)
         if options is None:
             self._options = []
         else:
@@ -237,14 +242,19 @@ class DynamicEnumArgument(EnumArgument):
     def __init__(self,
                  name: str,
                  description: str,
-                 default=Argument._NOT_SET,
-                 *, lookup_map):
-        super().__init__(name, description, default, list(lookup_map))
+                 default=Argument._NOT_SET, *,
+                 lookup_map,
+                 enabled_if: constraints.Constraint | None = None):
+        super().__init__(name, description, default, list(lookup_map), enabled_if=enabled_if)
 
 
 class BoolArgument(Argument):
-    def __init__(self, name: str, description: str, default=Argument._NOT_SET):
-        super().__init__(name, description, bool, default)
+    def __init__(self,
+                 name: str,
+                 description: str,
+                 default=Argument._NOT_SET, *,
+                 enabled_if: constraints.Constraint | None = None):
+        super().__init__(name, description, bool, default, enabled_if=enabled_if)
 
     def validate(self, value, *, tuning=False):
         if isinstance(value, bool) or (isinstance(value, int) and value in (0, 1)):
@@ -263,8 +273,12 @@ class BoolArgument(Argument):
 
 
 class StringArgument(Argument):
-    def __init__(self, name: str, description: str, default=Argument._NOT_SET):
-        super().__init__(name, description, str, default)
+    def __init__(self,
+                 name: str,
+                 description: str,
+                 default=Argument._NOT_SET, *,
+                 enabled_if: constraints.Constraint | None = None):
+        super().__init__(name, description, str, default, enabled_if=enabled_if)
 
     def validate(self, value, *, tuning=False):
         if not isinstance(value, str):
@@ -288,8 +302,9 @@ class JSONArgument(Argument):
                  name: str,
                  description: str,
                  schema: schemas.JSONSchema,
-                 default: Argument._NOT_SET):
-        super().__init__(name, description, object, default)
+                 default: Argument._NOT_SET, *,
+                 enabled_if: constraints.Constraint | None = None):
+        super().__init__(name, description, object, default, enabled_if=enabled_if)
         self._schema = schema
 
 
@@ -314,8 +329,12 @@ class JSONArgument(Argument):
 
 
 class QueryArgument(Argument):
-    def __init__(self, name: str, description: str, default=Argument._NOT_SET):
-        super().__init__(name, description, issue_db_api.Query, default)
+    def __init__(self,
+                 name: str,
+                 description: str,
+                 default=Argument._NOT_SET, *,
+                 enabled_if: constraints.Constraint | None = None):
+        super().__init__(name, description, issue_db_api.Query, default, enabled_if=enabled_if)
 
     def validate(self, value, *, tuning=False):
         if value is None:
@@ -356,12 +375,13 @@ class NestedArgument(Argument):
                  spec: dict[str, dict[str, Argument]],
                  constraint_spec: dict[str, list[Constraint]] | None = None,
                  tunable=False,
-                 multi_valued):
+                 multi_valued,
+                 enabled_if: constraints.Constraint | None = None):
         default = {
             key: [{k: v.default for k, v in value.items()}]
             for key, value in spec.items()
         }
-        super().__init__(name, description, dict, default=default)
+        super().__init__(name, description, dict, default=default, enabled_if=enabled_if)
         self._tunable = tunable
         self._raw_spec = spec
         self._raw_constraints = constraint_spec

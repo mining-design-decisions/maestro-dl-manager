@@ -221,7 +221,8 @@ def _get_run_endpoint_args():
             spec={
                 name: value.get_arguments()
                 for name, value in feature_generators.generators.items()
-            }
+            },
+            multi_valued=True
         ),
         'ontology-classes': StringArgument(
             name='ontology-classes',
@@ -286,7 +287,8 @@ def _get_run_endpoint_args():
             spec={
                 name: value.get_arguments()
                 for name, value in classifiers.models.items()
-            }
+            },
+            multi_valued=True
         ),
         'class-balancer': EnumArgument(
             name='class-balancer',
@@ -297,7 +299,13 @@ def _get_run_endpoint_args():
         'upsampler': DynamicEnumArgument(
             name='upsampler',
             description='Upsampling method to use',
-            lookup_map=upsampling.upsamplers
+            lookup_map=upsampling.upsamplers,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.class-balancer'), Constant('upsample')
+                ),
+                message='run.upsampler is only enabled when run.class-balancer == upsample'
+            )
         ),
         'upsampler-params': NestedArgument(
             name='upsampler-params',
@@ -305,7 +313,14 @@ def _get_run_endpoint_args():
             spec={
                 name: value.get_arguments()
                 for name, value in upsampling.upsamplers.items()
-            }
+            },
+            multi_valued=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.class-balancer'), Constant('upsample')
+                ),
+                message='run.upsampler-params is only enabled when run.class-balancer == upsample'
+            )
         ),
         'batch-size': IntArgument(
             name='batch-size',
@@ -325,6 +340,12 @@ def _get_run_endpoint_args():
                 "dot",
                 "concat"
             ],
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('combination')
+                ),
+                message='run.combination-strategy is only enabled if run.ensemble-strategy == combination'
+            )
         ),
         'combination-model-hyper-params': NestedArgument(
             name='combination-model-hyper-params',
@@ -333,7 +354,14 @@ def _get_run_endpoint_args():
             spec={
                 name: value.get_arguments()
                 for name, value in classifiers.models.items()
-            }
+            },
+            multi_valued=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('combination')
+                ),
+                message='run.combination-model-hyper-params is only enabled if run.ensemble-strategy == combination'
+            )
         ),
         'ensemble-strategy': EnumArgument(
             name='ensemble-strategy',
@@ -344,7 +372,13 @@ def _get_run_endpoint_args():
         'stacking-meta-classifier': DynamicEnumArgument(
             name='stacking-meta-classifier',
             description='Classifier to use as meta-classifier in stacking.',
-            lookup_map=classifiers.models
+            lookup_map=classifiers.models,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ),
+                message='run.stacking-meta-classifier is only enabled if run.ensemble-strategy == stacking'
+            )
         ),
         'stacking-meta-classifier-hyper-parameters': NestedArgument(
             name='stacking-meta-classifier-hyper-parameters',
@@ -352,22 +386,47 @@ def _get_run_endpoint_args():
             spec={
                 name: value.get_arguments()
                 for name, value in classifiers.models.items()
-            }
+            },
+            multi_valued=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ),
+                message='run.stacking-meta-classifier-hyper-parameters is only enabled if run.ensemble-strategy == stacking'
+            )
         ),
         'stacking-use-concat': BoolArgument(
             name='stacking-use-concat',
             description='Use simple concatenation to create the input for the meta classifier',
-            default=False
+            default=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ),
+                message='run.stacking-use-concat is only enabled if run.ensemble-strategy == stacking'
+            )
         ),
         'stacking-no-matrix': BoolArgument(
             name='stacking-no-matrix',
             description='Disallow the use of matrices for meta classifier input.',
-            default=False
+            default=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ),
+                message='run.stacking-no-matrix is only enabled if run.ensemble-strategy == stacking'
+            )
         ),
         'voting-mode': EnumArgument(
             name='voting-mode',
             description='Mode for the voting ensemble. Either hard of sort voting',
-            options=['soft', 'hard']
+            options=['soft', 'hard'],
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.ensemble-strategy'), Constant('voting')
+                ),
+                message='run.voting-mode is only enabled if run.ensemble-strategy == voting'
+            )
         ),
         'use-early-stopping': BoolArgument(
             name='use-early-stopping',
@@ -428,6 +487,12 @@ def _get_run_endpoint_args():
             name='test-data-query',
             description='Query to fetch testing data. '
                         'Only necessary when not using a normal train/test split.',
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.test-with-training-data'), Constant(False)
+                ),
+                message='run.test-data-query is only enabled if run.test-with-training-data is False.'
+            )
         ),
         'test-with-training-data': BoolArgument(
             name='test-with-training-data',
@@ -447,23 +512,53 @@ def _get_run_endpoint_args():
         'tuner-type': EnumArgument(
             name='tuner-type',
             description='Select the hyperparameter optimization strategy.',
-            options=['RandomSearch', 'BayesianOptimization', 'Hyperband']
+            options=['RandomSearch', 'BayesianOptimization', 'Hyperband'],
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-type is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-objective': StringArgument(
             name='tuner-objective',
             description='Metric/objective to optimise while tuning.',
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-objective is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-max-trials': IntArgument(
             name='tuner-max-trials',
-            description='Select the number of hyperparameter combinations that are tried.'
+            description='Select the number of hyperparameter combinations that are tried.',
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-max-trials is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-executions-per-trial': IntArgument(
             name='tuner-executions-per-trial',
-            description='Select the number of executions per trial, to mitigate randomness.'
+            description='Select the number of executions per trial, to mitigate randomness.',
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-executions-per-trial is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-hyperband-iterations': IntArgument(
             name='tuner-hyperband-iterations',
             description='Select the number of iterations for the HyperBand algorithm.',
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-hyperband-iterations is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-hyper-params': NestedArgument(
             name='tuner-hyper-params',
@@ -472,7 +567,14 @@ def _get_run_endpoint_args():
                 name: value.get_arguments()
                 for name, value in classifiers.models.items()
             },
-            tunable=True
+            tunable=True,
+            multi_valued=True,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-hyper-params is only enabled if run.perform-tuning is True.'
+            )
         ),
         'tuner-combination-model-hyper-params': NestedArgument(
             name='tuner-combination-model-hyper-params',
@@ -481,7 +583,14 @@ def _get_run_endpoint_args():
                 name: value.get_arguments()
                 for name, value in classifiers.models.items()
             },
-            tunable=True
+            tunable=True,
+            multi_valued=False,
+            enabled_if=BooleanConstraint(
+                Equal(
+                    ArgumentRef('run.perform-tuning'), Constant(True)
+                ),
+                message='run.tuner-combination-model-hyper-params is only enabled if run.perform-tuning is True.'
+            )
         )
     }
 
@@ -575,7 +684,8 @@ def _get_internal_embedding_endpoint_args() -> dict[str, Argument]:
             spec={
                 name: value.get_arguments()
                 for name, value in embeddings.generators.items()
-            }
+            },
+            multi_valued=False
         ),
         'training-data-query': QueryArgument(
             name='training-data-query',

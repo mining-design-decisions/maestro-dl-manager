@@ -31,7 +31,9 @@ from . import data_manager
 from . import embeddings
 
 from . import learning
-from .config import WebApp, Config
+from .endpoints import WebApp
+from .web_api import get_api_spec
+from .config.core import Config
 from .logger import get_logger
 from . import metrics
 
@@ -54,15 +56,9 @@ def main(port, keyfile, certfile, script, invalidate_checkpoints):
         app.execute_script(script, invalidate_checkpoints=invalidate_checkpoints)
 
 
-def get_arg_spec():
-    location = os.path.split(__file__)[0]
-    return os.path.join(location, "web_api.json")
-
 
 def build_app():
-    location = get_arg_spec()
-    log.debug(f"Building app from file {location}")
-    app = WebApp(location)
+    app = WebApp(get_api_spec())
     setup_app_constraints(app)
     return app
 

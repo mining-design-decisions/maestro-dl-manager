@@ -338,6 +338,7 @@ class AbstractModel(abc.ABC, ArgumentConsumer):
                         ),
                     },
                 },
+                multi_valued=False
             ),
             "loss": EnumArgument(
                 default="crossentropy",

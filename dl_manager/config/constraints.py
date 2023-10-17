@@ -36,6 +36,9 @@ class Constraint(abc.ABC):
     def to_json(self):
         pass
 
+    def get_json_spec(self):
+        return list(self.to_json())
+
 
 class MutuallyExclusive(Constraint):
 

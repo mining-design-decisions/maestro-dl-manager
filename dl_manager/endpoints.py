@@ -10,6 +10,8 @@ line interface
 
 from __future__ import annotations
 
+import itertools
+
 ##############################################################################
 ##############################################################################
 # Imports
@@ -45,6 +47,7 @@ class WebApp:
         self._config_factory = ConfigFactory()
         self._spec = spec
         self._register_system_properties()
+        self._build_endpoints(self._spec['commands'].values())
         self._add_static_endpoints()
 
     def _register_system_properties(self):
@@ -116,7 +119,31 @@ class WebApp:
     def _add_static_endpoints(self):
         @self._router.get("/endpoints")
         async def get_endpoints():
-            return self._spec
+            result = {
+                'name': self._spec['name'],
+                'help': self._spec['help'],
+                'commands': {
+                    key: {
+                        'name': value['name'],
+                        'help': value['help'],
+                        'args': {
+                            k: v.get_json_spec() for k, v in value['args'].items()
+                        },
+                        # 'constraints': [
+                        #     x.get_json_spec() for x in value['constraints']
+                        # ]
+                        'constraints': list(
+                            itertools.chain(
+                                *(x.get_json_spec() for x in value['constraints'])
+                            )
+                        )
+                    }
+                    for key, value in self._spec['commands'].items()
+                }
+            }
+            for key, value in self._spec['commands'].items():
+                print(value['constraints'])
+            return result
 
     def register_callback(self, event, func):
         self._callbacks[event] = func

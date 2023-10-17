@@ -5,7 +5,7 @@ import graphlib
 import logging
 import warnings
 
-from .arguments import Argument, NestedArgument
+from . import arguments
 from .constraints import Constraint
 from .core import ConfigFactory, NoSuchSetting, NotSet
 from . import schemas
@@ -15,7 +15,7 @@ class ArgumentConsumer:
 
     @classmethod
     @abc.abstractmethod
-    def get_arguments(cls) -> dict[str, Argument]:
+    def get_arguments(cls) -> dict[str, arguments.Argument]:
         return {}
 
     @classmethod
@@ -141,7 +141,7 @@ class ArgumentListParser:
                 self._log.info(f'Validated value for argument {arg_name}: {parsed}')
         return result
 
-    def _sort_args(self, args: dict[str, Argument]) -> list[str]:
+    def _sort_args(self, args: dict[str, arguments.Argument]) -> list[str]:
         graph = {}
         for name, arg in args.items():
             graph[name] = set(arg.depends_on())
@@ -165,14 +165,14 @@ class ArgumentListParser:
                 for v in indices.values():
                     v.update(defaults)
 
-    def validate_value(self, argument: Argument, value):
+    def validate_value(self, argument: arguments.Argument, value):
         if self._tunable:
             return self._validate_tunable(argument, value)
         return argument.validate(value)
 
-    def validate_default(self, argument: Argument, value):
+    def validate_default(self, argument: arguments.Argument, value):
         if self._tunable:
-            if isinstance(argument, NestedArgument):
+            if isinstance(argument, arguments.NestedArgument):
                 default = {
                     f'{key}.0': {
                         k: {'type': 'values', 'options': {'values': [v]}}
@@ -186,7 +186,7 @@ class ArgumentListParser:
                 {"type": "values", "options": {"values": [argument.validate(value, tuning=True)]}},
             )
             return self._validate_tunable(argument, value)
-        if isinstance(argument, NestedArgument):
+        if isinstance(argument, arguments.NestedArgument):
             return argument.default
         return argument.validate(value)
 
@@ -221,8 +221,8 @@ class ArgumentListParser:
         )
     )
 
-    def _validate_tunable(self, argument: Argument, value):
-        if isinstance(argument, NestedArgument):        # Ugly, but necessary with current design
+    def _validate_tunable(self, argument: arguments.Argument, value):
+        if isinstance(argument, arguments.NestedArgument):        # Ugly, but necessary with current design
             return argument.validate(value, tuning=True)
         arg_name = f'{self._name}.{argument.argument_name}'
         try:
@@ -242,7 +242,7 @@ class ArgumentListParser:
             case _ as x:
                 raise NotImplementedError(x)
 
-    def _validate_range(self, validator: Argument, options: dict):
+    def _validate_range(self, validator: arguments.Argument, options: dict):
         if "range" not in validator.supported_hyper_param_specs():
             self._raise_invalid(f"Hyper param arglist item of type "
                                 f"{validator.__class__.__name__} does not support range.")
@@ -253,13 +253,13 @@ class ArgumentListParser:
             options["sampling"] = "linear"
         return result
 
-    def _validate_values(self, validator: Argument, options: dict):
+    def _validate_values(self, validator: arguments.Argument, options: dict):
         if "values" not in validator.supported_hyper_param_specs():
             self._raise_invalid(f'Hyper param arglist item of type '
                                 f'{validator.__class__.__name__} does not support "values".')
         return {"values": [validator.validate(value) for value in options]}
 
-    def _validate_floats(self, validator: Argument, options: dict):
+    def _validate_floats(self, validator: arguments.Argument, options: dict):
         if "floats" not in validator.supported_hyper_param_specs():
             self._raise_invalid(f'Hyper param arglist item of type '
                                 f'{validator.__class__.__name__} does not support "floats".')

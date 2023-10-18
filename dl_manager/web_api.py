@@ -101,75 +101,75 @@ def get_run_endpoint_data():
 def _get_run_endpoint_constraints() -> list[Constraint]:
     return [
         BooleanConstraint(
-            Equal(LengthOfArgument('run.classifier'), LengthOfArgument('run.input-mode')),
-            message=f'Argument lists "run.classifier" and "run.input-mode" must have equal length.'
+            Equal(LengthOfArgument('classifier'), LengthOfArgument('input-mode')),
+            message=f'Argument lists "classifier" and "input-mode" must have equal length.'
         ),
         BooleanConstraint(
-            Equal(LengthOfArgument('run.early-stopping-min-delta'), LengthOfArgument('run.early-stopping-attribute')),
-            message=f'Argument lists "run.early-stopping-min-delta" and "run.early-stopping-attribute" must have equal length.'
+            Equal(LengthOfArgument('early-stopping-min-delta'), LengthOfArgument('early-stopping-attribute')),
+            message=f'Argument lists "early-stopping-min-delta" and "early-stopping-attribute" must have equal length.'
         ),
         MutuallyExclusive(
-            Equal(ArgumentRef('run.ensemble-strategy'), Constant('none')),
-            Equal(ArgumentRef('run.test-separately'), Constant(True)),
+            Equal(ArgumentRef('ensemble-strategy'), Constant('none')),
+            Equal(ArgumentRef('test-separately'), Constant(True)),
             message='Cannot use ensemble when using separate testing mode.'
         ),
         MutuallyExclusive(
-            Equal(ArgumentRef('run.store-model'), Constant(True)),
-            Equal(ArgumentRef('run.test-separately'), Constant(True)),
+            Equal(ArgumentRef('store-model'), Constant(True)),
+            Equal(ArgumentRef('test-separately'), Constant(True)),
             message='Cannot store model when using separate testing mode.'
         ),
         MutuallyExclusive(
-            Equal(ArgumentRef('run.store-model'), Constant(True)),
-            NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
-            Equal(ArgumentRef('run.cross-project'), Constant(True)),
+            Equal(ArgumentRef('store-model'), Constant(True)),
+            NotEqual(ArgumentRef('k-cross'), Constant(0)),
+            Equal(ArgumentRef('cross-project'), Constant(True)),
             message='Cannot store model when using k-fold cross validation or project cross validation.'
         ),
         MutuallyExclusive(
-            Equal(ArgumentRef('run.cross-project'), Constant(True)),
-            NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
+            Equal(ArgumentRef('cross-project'), Constant(True)),
+            NotEqual(ArgumentRef('k-cross'), Constant(0)),
             message='Cannot use k-cross and cross-project at the same time.'
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.quick-cross'), Constant(True)),
+            main=Equal(ArgumentRef('quick-cross'), Constant(True)),
             message='Must specify k-cross when running with quick-cross.',
             forbids=[
-                Equal(ArgumentRef('run.k-cross'), Constant(0)),
+                Equal(ArgumentRef('k-cross'), Constant(0)),
             ]
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.store-model'), Constant(True)),
+            main=Equal(ArgumentRef('store-model'), Constant(True)),
             message='model-id must be given when storing a model.',
             forbids=[
-                Equal(ArgumentRef('run.model-id'), Constant(''))
+                Equal(ArgumentRef('model-id'), Constant(''))
             ]
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.store-model'), Constant(True)),
+            main=Equal(ArgumentRef('store-model'), Constant(True)),
             message='May not use cache-features when using store-model.',
             forbids=[
-                Equal(ArgumentRef('run.cache-features'), Constant(True))
+                Equal(ArgumentRef('cache-features'), Constant(True))
             ],
             add_reverse_constraints=True
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.analyze-keywords'), Constant(True)),
+            main=Equal(ArgumentRef('analyze-keywords'), Constant(True)),
             message='Can only analyze keywords when using a convolutional model',
             forbids=[
-                ListNotContains(ArgumentRef('run.classifiers'), Constant('LinearConv1Model'))
+                ListNotContains(ArgumentRef('classifier'), Constant('LinearConv1Model'))
             ],
             add_reverse_constraints=True
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.analyze-keywords'), Constant(True)),
+            main=Equal(ArgumentRef('analyze-keywords'), Constant(True)),
             message='Cannot perform cross validation when extracting keywords.',
             forbids=[
-                NotEqual(ArgumentRef('run.k-cross'), Constant(0)),
-                Equal(ArgumentRef('run.cross-project'), Constant(True))
+                NotEqual(ArgumentRef('k-cross'), Constant(0)),
+                Equal(ArgumentRef('cross-project'), Constant(True))
             ],
             add_reverse_constraints=True
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.k-cross'), Constant(True)),
+            main=Equal(ArgumentRef('k-cross'), Constant(True)),
             message='Must test with training data when performing cross validation!',
             forbids=[
                 Equal(ArgumentRef('test-with-training-data'), Constant(False))
@@ -177,7 +177,7 @@ def _get_run_endpoint_constraints() -> list[Constraint]:
             add_reverse_constraints=True
         ),
         Forbids(
-            main=Equal(ArgumentRef('run.cross-project'), Constant(True)),
+            main=Equal(ArgumentRef('cross-project'), Constant(True)),
             message='Must test with training data when performing cross validation!',
             forbids=[
                 Equal(ArgumentRef('test-with-training-data'), Constant(False))
@@ -186,12 +186,12 @@ def _get_run_endpoint_constraints() -> list[Constraint]:
         ),
         Forbids(
             main=Or(
-                Equal(ArgumentRef('run.apply-ontology-classes'), Constant(True)),
-                ListContains(ArgumentRef('run.classifiers'), Constant('OntologyFeatures'))
+                Equal(ArgumentRef('apply-ontology-classes'), Constant(True)),
+                ListContains(ArgumentRef('classifier'), Constant('OntologyFeatures'))
             ),
             message='Ontology class file must be given when applying ontology classes or using ontology features.',
             forbids=[
-                Equal(ArgumentRef('run.ontology-classes'), Constant(''))
+                Equal(ArgumentRef('ontology-classes'), Constant(''))
             ]
         )
     ]
@@ -202,7 +202,7 @@ def _get_run_endpoint_args():
             inner=DynamicEnumArgument(
                 name='input-mode',
                 description='Feature generator to use.',
-                lookup_map=classifiers.models
+                lookup_map=feature_generators.generators
             )
         ),
         'output-mode': EnumArgument(
@@ -301,7 +301,7 @@ def _get_run_endpoint_args():
             description='Upsampling method to use',
             lookup_map=upsampling.upsamplers,
             enabled_if=Equal(
-                ArgumentRef('run.class-balancer'), Constant('upsample')
+                ArgumentRef('class-balancer'), Constant('upsample')
             )
         ),
         'upsampler-params': NestedArgument(
@@ -313,7 +313,7 @@ def _get_run_endpoint_args():
             },
             multi_valued=False,
             enabled_if=Equal(
-                ArgumentRef('run.class-balancer'), Constant('upsample')
+                ArgumentRef('class-balancer'), Constant('upsample')
             )
         ),
         'batch-size': IntArgument(
@@ -335,7 +335,7 @@ def _get_run_endpoint_args():
                 "concat"
             ],
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('combination')
+                ArgumentRef('ensemble-strategy'), Constant('combination')
             )
         ),
         'combination-model-hyper-params': NestedArgument(
@@ -348,7 +348,7 @@ def _get_run_endpoint_args():
             },
             multi_valued=False,
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('combination')
+                ArgumentRef('ensemble-strategy'), Constant('combination')
             )
         ),
         'ensemble-strategy': EnumArgument(
@@ -362,7 +362,7 @@ def _get_run_endpoint_args():
             description='Classifier to use as meta-classifier in stacking.',
             lookup_map=classifiers.models,
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ArgumentRef('ensemble-strategy'), Constant('stacking')
             )
         ),
         'stacking-meta-classifier-hyper-parameters': NestedArgument(
@@ -374,7 +374,7 @@ def _get_run_endpoint_args():
             },
             multi_valued=False,
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ArgumentRef('ensemble-strategy'), Constant('stacking')
             )
         ),
         'stacking-use-concat': BoolArgument(
@@ -382,7 +382,7 @@ def _get_run_endpoint_args():
             description='Use simple concatenation to create the input for the meta classifier',
             default=False,
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ArgumentRef('ensemble-strategy'), Constant('stacking')
             )
         ),
         'stacking-no-matrix': BoolArgument(
@@ -390,7 +390,7 @@ def _get_run_endpoint_args():
             description='Disallow the use of matrices for meta classifier input.',
             default=False,
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('stacking')
+                ArgumentRef('ensemble-strategy'), Constant('stacking')
             )
         ),
         'voting-mode': EnumArgument(
@@ -398,7 +398,7 @@ def _get_run_endpoint_args():
             description='Mode for the voting ensemble. Either hard of sort voting',
             options=['soft', 'hard'],
             enabled_if=Equal(
-                ArgumentRef('run.ensemble-strategy'), Constant('voting')
+                ArgumentRef('ensemble-strategy'), Constant('voting')
             )
         ),
         'use-early-stopping': BoolArgument(
@@ -461,7 +461,7 @@ def _get_run_endpoint_args():
             description='Query to fetch testing data. '
                         'Only necessary when not using a normal train/test split.',
             enabled_if=Equal(
-                ArgumentRef('run.test-with-training-data'), Constant(False)
+                ArgumentRef('test-with-training-data'), Constant(False)
             ),
         ),
         'test-with-training-data': BoolArgument(
@@ -484,35 +484,35 @@ def _get_run_endpoint_args():
             description='Select the hyperparameter optimization strategy.',
             options=['RandomSearch', 'BayesianOptimization', 'Hyperband'],
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-objective': StringArgument(
             name='tuner-objective',
             description='Metric/objective to optimise while tuning.',
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-max-trials': IntArgument(
             name='tuner-max-trials',
             description='Select the number of hyperparameter combinations that are tried.',
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-executions-per-trial': IntArgument(
             name='tuner-executions-per-trial',
             description='Select the number of executions per trial, to mitigate randomness.',
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-hyperband-iterations': IntArgument(
             name='tuner-hyperband-iterations',
             description='Select the number of iterations for the HyperBand algorithm.',
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-hyper-params': NestedArgument(
@@ -525,7 +525,7 @@ def _get_run_endpoint_args():
             tunable=True,
             multi_valued=True,
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         ),
         'tuner-combination-model-hyper-params': NestedArgument(
@@ -538,7 +538,7 @@ def _get_run_endpoint_args():
             tunable=True,
             multi_valued=False,
             enabled_if=Equal(
-                ArgumentRef('run.perform-tuning'), Constant(True)
+                ArgumentRef('perform-tuning'), Constant(True)
             )
         )
     }

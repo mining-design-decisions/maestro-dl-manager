@@ -24,7 +24,7 @@ import uvicorn
 from .config.arguments import Argument
 from .config.constraints import Constraint
 from .config.core import ConfigFactory, Config
-from .config.parsing import ArgumentListParser, ArgumentConsumer
+from .config.parsing import ArgumentListParser, ArgumentConsumer, ArgumentParsingError
 from . import logger
 from . import checkpointing
 
@@ -194,18 +194,6 @@ class WebApp:
 
 
 class _Endpoint:
-    class _Wrapper(ArgumentConsumer):
-
-        def __init__(self, args, const):
-            self._args = args
-            self._constraints = const
-
-        def get_arguments(self) -> dict[str, Argument]:
-            return self._args
-
-        def get_constraints(self) -> list[Constraint]:
-            return self._constraints
-
 
     def __init__(self, spec, config_factory: ConfigFactory, callback):
         self._spec = spec
@@ -213,10 +201,15 @@ class _Endpoint:
         self.private = self._spec['private']
         self.description = self._spec['help']
         self._config_factory = config_factory
+        log.info(f'Registering argument namespace: {self.name}')
+        config_factory.register_namespace(self.name)
+        for name in self._spec['args']:
+            config_factory.register(f'{self.name}.{name}')
+            log.info(f'Registered argument: {self.name}.{name}')
         self._dispatcher = callback
-        self._parser = ArgumentListParser(
+        self._parser = ArgumentListParser.from_spec_dict(
             self.name,
-            {self.name: self._Wrapper(self._spec['args'], self._spec['constraints'])},
+            {self.name: (self._spec['args'], self._spec['constraints'])},
             multi_valued=False,
             tunable_arguments=False,
             logger=log
@@ -240,7 +233,13 @@ class _Endpoint:
         return self.run(conf, payload["config"])
 
     def run(self, conf: Config, payload):
-        args = self._parser.validate({f'{self.name}.0': payload})[f'{self.name}.0']
+        try:
+            args = self._parser.validate({f'{self.name}.0': payload})[f'{self.name}'][0]
+        except ArgumentParsingError as e:
+            raise fastapi.HTTPException(
+                detail=e.message,
+                status_code=400 if e.is_user_error else 500
+            )
         for name, value in args.items():
             conf.set(f"{self.name}.{name}", value)
         return self._dispatcher(self.name, conf)

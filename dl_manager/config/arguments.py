@@ -220,7 +220,7 @@ class EnumArgument(Argument):
         if not isinstance(value, str):
             self.raise_invalid(f"Must be string, got {value.__class__.__name__}")
         if value not in self._options:
-            self.raise_invalid(f'Must be one of {", ".join(self._options)}')
+            self.raise_invalid(f'Must be one of {", ".join(self._options)} (got {value})')
         return value
 
     def legal_values(self):
@@ -354,17 +354,6 @@ class QueryArgument(Argument):
 
 class NestedArgument(Argument):
 
-    class _Wrapper(ArgumentConsumer):
-        def __init__(self, payload, const):
-            self._payload = payload
-            self._constraint = const
-
-        def get_constraints(self) -> list[Constraint]:
-            return self._constraint
-
-        def get_arguments(self) -> dict[str, Argument]:
-            return self._payload
-
 
     def __init__(self,
                  name: str,
@@ -390,17 +379,15 @@ class NestedArgument(Argument):
         self._raw_constraints = constraint_spec
         self._multi_valued = multi_valued
         self._spec = {
-            key: self._Wrapper(value, [] if constraint_spec == {} else constraint_spec[key])
+            key: (value, [] if constraint_spec == {} else constraint_spec[key])
             for key, value in spec.items()
         }
-        self._parser = ArgumentListParser(name,
-                                          self._spec,
-                                          multi_valued=self._multi_valued,
-                                          tunable_arguments=False)
-        self._hyper_parser = ArgumentListParser(name,
-                                                self._spec,
-                                                multi_valued=self._multi_valued,
-                                                tunable_arguments=True)
+        self._parser = ArgumentListParser.from_spec_dict(
+            name, self._spec, multi_valued=self._multi_valued, tunable_arguments=False
+        )
+        self._hyper_parser = ArgumentListParser.from_spec_dict(
+            name, self._spec, multi_valued=self._multi_valued, tunable_arguments=True
+        )
 
     def validate(self, value, *, tuning=False):
         try:

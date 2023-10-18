@@ -28,15 +28,22 @@ class ConfigFactory:
         self._namespace = {}
 
     @classmethod
-    def dict_config(cls, d):
+    def dict_config(cls, d, *, namespace=None):
         self = cls()
-        namespace = '$dict'
+        no_namespace = namespace is None
+        if no_namespace:
+            namespace = '$dict'
         self.register_namespace(namespace)
         for key in d:
             self.register(f'{namespace}.{key}')
-        config = self._build_dict_config(namespace)
-        for key, value in d:
-            config.set(key, value)
+        if no_namespace:
+            config = self._build_dict_config(namespace)
+            for key, value in d.items():
+                config.set(key, value)
+        else:
+            config = self.build_config(namespace)
+            for key, value in d.items():
+                config.set(f'{namespace}.{key}', value)
         return config
 
     @staticmethod
@@ -166,4 +173,4 @@ class _ConfigDictProxy(Config):
         self._prefix = prefix
 
     def _normalize_name(self, x):
-        return [self._prefix, x]
+        return [self._prefix, x.replace('-', '_')]

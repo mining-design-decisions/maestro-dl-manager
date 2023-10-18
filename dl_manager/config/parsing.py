@@ -32,6 +32,15 @@ class ArgumentParsingError(Exception):
         self.is_user_error = is_user_error
 
 
+class _NullLogger:
+    def debug(self, *args, **kwargs): pass
+    def info(self, *args, **kwargs): pass
+    def warning(self, *args, **kwargs): pass
+    def warn(self, *args, **kwargs): pass
+    def error(self, *args, **kwargs): pass
+    def critical(self, *args, **kwargs): pass
+
+
 class ArgumentListParser:
 
     def __init__(self, name: str, lookup_map, *,
@@ -42,7 +51,35 @@ class ArgumentListParser:
         self._name = name
         self._multi_valued = multi_valued
         self._tunable = tunable_arguments
-        self._log = logger if logger is not None else lambda *a, **kw: ...
+        self._log = logger if logger is not None else _NullLogger()
+
+    @classmethod
+    def from_spec_dict(cls, name: str, lookup_map, *,
+                       multi_valued=False,
+                       tunable_arguments=False,
+                       logger: logging.Logger | None = None):
+        wrapper_map = {
+            name: cls._make_wrapper(name, args, const)
+            for name, (args, const) in lookup_map.items()
+        }
+        return cls(name,
+                   wrapper_map,
+                   multi_valued=multi_valued,
+                   tunable_arguments=tunable_arguments,
+                   logger=logger)
+
+    @staticmethod
+    def _make_wrapper(name, args, const):
+        return type(
+            name,
+            (ArgumentConsumer,),
+            {
+                '_args': args,
+                '_constraints': const,
+                'get_constraints': classmethod(lambda cls: cls._constraints),
+                'get_arguments': classmethod(lambda cls: cls._args)
+            }
+        )
 
     # ----- Validation Utilities -----
 
@@ -69,7 +106,7 @@ class ArgumentListParser:
         args_by_instance = {}
         default_by_class = {}
         defaults = None
-        for name, args in values().items():
+        for name, args in values.items():
             if '.' in name:
                 cls, index, parsed = self._validate_instance_args(name, args)
                 args_by_instance.setdefault(cls, {})[index] = parsed
@@ -124,6 +161,7 @@ class ArgumentListParser:
             try:
                 if not arg.is_enabled(ConfigFactory.dict_config(result)):
                     self._log.info(f'Skipping disabled argument: {arg_name}')
+                    continue
             except (NoSuchSetting, NotSet) as e:
                 raise ValueError(
                     f'Error while evaluating enablement constraint. '
@@ -279,7 +317,8 @@ class ArgumentListParser:
         self._impose_constraints_single_valued(args_by_instance)
 
     def _impose_constraints_single_valued(self, args_by_instance):
-        for cls, indices in args_by_instance.items():
+        for cls_name, indices in args_by_instance.items():
+            cls = self._find_class(cls_name)
             for index, instance_args in indices.items():
                 constraints: list[Constraint] = cls.get_constraints()
                 conf = ConfigFactory.dict_config(instance_args)

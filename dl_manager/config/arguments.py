@@ -144,7 +144,7 @@ class FloatArgument(Argument):
         self._max = maximum
 
     def validate(self, value, *, tuning=False):
-        if not isinstance(value, float):
+        if not isinstance(value, float) and not isinstance(value, int):
             self.raise_invalid(f"Must be float, got {value.__class__.__name__}")
         if self._min is not None and value < self._min:
             self.raise_invalid(f"Must be >= {self._min}")

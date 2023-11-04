@@ -18,6 +18,7 @@ import itertools
 ##############################################################################
 
 import fastapi
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 import uvicorn
 
@@ -152,6 +153,13 @@ class WebApp:
         self._setup_callbacks.append(func)
 
     def deploy(self, port, keyfile, certfile):
+        self._app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        )
         self._app.include_router(self._router)
         uvicorn.run(
             self._app,

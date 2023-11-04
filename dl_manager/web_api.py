@@ -552,7 +552,7 @@ def _get_run_endpoint_args():
 
 def get_prediction_endpoint_data():
     return {
-        'name': 'prediction',
+        'name': 'predict',
         'help': 'Use an existing classifier to make predictions on new data.',
         'private': False,
         'args': _get_prediction_args(),
@@ -677,8 +677,8 @@ def _get_metrics_endpoint_args() -> dict[str, Argument]:
             description='JSON description of the metrics to compute',
             schema=schemas.Array(
                 schemas.FixedObject(
-                    mode=schemas.String(),
-                    metric_name=schemas.String(),
+                    dataset=schemas.String(),
+                    metric=schemas.String(),
                     variant=schemas.String()
                 )
             )

@@ -3,7 +3,9 @@ import pathlib
 from gensim.models import Word2Vec as GensimWord2Vec
 
 from .embedding_generator import AbstractEmbeddingGenerator
-from ..config import Argument, IntArgument, EnumArgument, Config
+from ..config.arguments import Argument, IntArgument, EnumArgument
+from ..config.core import Config
+from ..config.constraints import Constraint
 
 
 class Word2VecGenerator(AbstractEmbeddingGenerator):
@@ -19,8 +21,12 @@ class Word2VecGenerator(AbstractEmbeddingGenerator):
         )
         model.wv.save_word2vec_format(path, binary=True)
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(Word2VecGenerator, Word2VecGenerator).get_arguments() | {
             "vector-length": IntArgument(
                 name="vector-length",

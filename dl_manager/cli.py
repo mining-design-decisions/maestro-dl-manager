@@ -23,7 +23,7 @@ import numpy
 
 import issue_db_api
 
-from . import classifiers, kw_analyzer, model_manager
+from . import classifiers,  model_manager
 
 from . import feature_generators
 from .model_io import OutputMode
@@ -31,7 +31,9 @@ from . import data_manager
 from . import embeddings
 
 from . import learning
-from .config import WebApp, Config
+from .endpoints import WebApp
+from .web_api import get_api_spec
+from .config.core import Config
 from .logger import get_logger
 from . import metrics
 
@@ -46,154 +48,22 @@ from . import prediction
 ##############################################################################
 
 
-def main(port, keyfile, certfile, script, invalidate_checkpoints):
+def main(port, script, invalidate_checkpoints):
     app = build_app()
     if not script:
-        app.deploy(port, keyfile, certfile)
+        app.deploy(port)
     else:
         app.execute_script(script, invalidate_checkpoints=invalidate_checkpoints)
 
 
-def get_arg_spec():
-    location = os.path.split(__file__)[0]
-    return os.path.join(location, "web_api.json")
-
 
 def build_app():
-    location = get_arg_spec()
-    log.debug(f"Building app from file {location}")
-    app = WebApp(location)
+    app = WebApp(get_api_spec())
     setup_app_constraints(app)
     return app
 
 
 def setup_app_constraints(app):
-    def add_eq_len_constraint(p, q):
-        app.add_constraint(
-            lambda x, y: len(x) == len(y),
-            "Argument lists must have equal length.",
-            p,
-            q,
-        )
-
-    def add_min_delta_constraints(cmd):
-        app.add_constraint(
-            lambda deltas, attrs: len(deltas) == len(attrs) or len(deltas) == 1,
-            "Requirement not satisfied: len(min-delta) = len(trimming-attributes) or len(min-delta) = 1",
-            f"{cmd}.min-delta",
-            f"{cmd}.trimming-attribute",
-        )
-
-    add_min_delta_constraints("run_analysis.summarize")
-    add_min_delta_constraints("run_analysis.plot")
-    add_min_delta_constraints("run_analysis.plot-attributes")
-    add_min_delta_constraints("run_analysis.confusion")
-    add_min_delta_constraints("run_analysis.compare")
-    add_min_delta_constraints("run_analysis.compare-stats")
-
-    add_eq_len_constraint("run.classifier", "run.input_mode")
-    add_eq_len_constraint(
-        "run.early-stopping-min-delta", "run.early-stopping-attribute"
-    )
-
-    app.add_constraint(
-        lambda ensemble, test_sep: ensemble == "none" or not test_sep,
-        "Cannot use ensemble when using separate testing mode.",
-        "run.ensemble-strategy",
-        "run.test-separately",
-    )
-    app.add_constraint(
-        lambda store, test_separately: not (store and test_separately),
-        "Cannot store model when using separate testing mode.",
-        "run.store-model",
-        "run.test-separately",
-    )
-    app.add_constraint(
-        lambda store, k: not (store and k > 0),
-        "Cannot store model when using k-fold cross validation",
-        "run.store-model",
-        "run.k-cross",
-    )
-    app.add_constraint(
-        lambda cross_project, k: k == 0 or not cross_project,
-        "Cannot use --k-cross and --cross-project at the same time.",
-        "run.cross-project",
-        "run.k-cross",
-    )
-    app.add_constraint(
-        lambda k, quick_cross: not quick_cross or k > 0,
-        "Must specify k when running with --quick-cross",
-        "run.k-cross",
-        "run.quick-cross",
-    )
-    app.add_constraint(
-        lambda k, cross_project: k == 0 or not cross_project,
-        "k-cross must be 0 when running with --cross-project",
-        "run.k-cross",
-        "run.cross-project",
-    )
-    app.add_constraint(
-        lambda do_save, model_id: (not do_save) or (do_save and model_id),
-        "--model-id must be given when storing a model.",
-        "run.store-model",
-        "run.model-id",
-    )
-    app.add_constraint(
-        lambda do_save, cache_features: (not do_save)
-        or (do_save and not cache_features),
-        "May not use --cache-features when using --store-model.",
-        "run.store-model",
-        "run.cache-features",
-    )
-    app.add_constraint(
-        lambda do_save, k, cross_project, quick_cross: (not do_save)
-        or (k == 0 and not cross_project and not quick_cross),
-        "Cannot run cross validation (or cross study) scheme when saving a model.",
-        "run.store-model",
-        "run.k-cross",
-        "run.cross-project",
-        "run.quick-cross",
-    )
-    app.add_constraint(
-        lambda do_analyze, _, conf: not do_analyze
-        or kw_analyzer.model_is_convolution(conf),
-        "Can only analyze keywords when using a convolutional model",
-        "run.analyze-keywords",
-        "run.classifier",
-        "#config",
-    )
-    app.add_constraint(
-        lambda do_analyze, conf: (not do_analyze) or kw_analyzer.doing_one_run(conf),
-        "Can not perform cross validation when extracting keywords",
-        "run.analyze-keywords",
-        "#config",
-    )
-    app.add_constraint(
-        lambda k_cross, test_with_training_data: k_cross == 0
-        or test_with_training_data,
-        "Must test with training data when performing cross validation!",
-        "run.k-cross",
-        "run.test-with-training-data",
-    )
-    app.add_constraint(
-        lambda ontology_id, apply_ontology, models: True
-        if "OntologyFeatures" not in models and not apply_ontology
-        else ontology_id != "",
-        "Ontology class file must be given when applying ontology classes or using ontology features",
-        "run.ontology-classes",
-        "run.apply-ontology-classes",
-        "run.classifier",
-    )
-
-    # Enforced using null-if
-    # app.add_constraint(
-    #     lambda test_query, test_with_train: (
-    #         (not test_with_train) or test_query
-    #     ),
-    #     'Must either test with training data, or give a testing data query',
-    #     'run.test-data-query', 'run.test-with-training-data'
-    # )
-
     app.register_callback("predict", run_prediction_command)
     app.register_callback("run", run_classification_command)
     app.register_callback("train", run_training_session)

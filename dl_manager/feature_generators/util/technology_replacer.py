@@ -4,7 +4,7 @@ import os.path
 
 import issue_db_api
 
-from ... import config
+import dl_manager.config.core
 from ... import accelerator
 
 
@@ -20,7 +20,7 @@ def replace_technologies(issues: list[list[str]],
                          project_name_lookup_ident: str | None,
                          this_project_replacement: str,
                          other_project_replacement: str,
-                         conf: config.Config, *,
+                         conf: dl_manager.config.core.Config, *,
                          project_names_file=None,
                          name_lookup_file=None) -> list[list[str]]:
     _check_one_none(project_names_ident, project_names_file, 'project_names')
@@ -180,7 +180,7 @@ def replace_other_systems(projects: list[str],
 #                                              num_threads)
 
 
-def get_filename(ident: str, conf: config.Config):
+def get_filename(ident: str, conf: dl_manager.config.core.Config):
     path = os.path.join(
         conf.get('system.os.scratch-directory'),
         ident
@@ -188,7 +188,7 @@ def get_filename(ident: str, conf: config.Config):
     return path
 
 
-def load_db_file(ident: str, conf: config.Config):
+def load_db_file(ident: str, conf: dl_manager.config.core.Config):
     db: issue_db_api.IssueRepository = conf.get('system.storage.database-api')
     file = db.get_file_by_id(ident)
     path = get_filename(ident, conf)

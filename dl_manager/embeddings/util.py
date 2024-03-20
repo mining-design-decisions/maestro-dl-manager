@@ -2,9 +2,10 @@ import os.path
 import shutil
 
 import issue_db_api
-from .. import config
 
-def load_embedding(ident, repo: issue_db_api.IssueRepository, conf: config.Config):
+from ..config.core import Config
+
+def load_embedding(ident, repo: issue_db_api.IssueRepository, conf: Config):
     embedding = repo.get_embedding_by_id(ident)
     temp_file = os.path.join(conf.get('system.os.scratch-directory'), 'embedding-file.zip')
     target_dir =  os.path.join(conf.get('system.os.scratch-directory'), ident)

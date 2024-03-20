@@ -13,7 +13,7 @@ import zipfile
 
 import issue_db_api
 
-from .config import Config
+from .config.core import Config
 from .logger import get_logger
 log = get_logger('Model Saver')
 

@@ -2,7 +2,8 @@ import collections
 
 import issue_db_api
 
-from ..config import Argument
+from ..config.arguments import Argument
+from ..config.constraints import Constraint
 from .generator import AbstractFeatureGenerator, FeatureEncoding
 from ..model_io import InputEncoding
 
@@ -92,6 +93,10 @@ class OntologyFeatures(AbstractFeatureGenerator):
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Numerical
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(OntologyFeatures, OntologyFeatures).get_arguments()

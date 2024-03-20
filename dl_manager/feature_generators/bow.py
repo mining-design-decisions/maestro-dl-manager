@@ -6,7 +6,8 @@ import issue_db_api
 
 from ..logger import timer
 
-from ..config import Argument, StringArgument
+from ..config.arguments import Argument, StringArgument
+from ..config.constraints import Constraint
 from .generator import AbstractFeatureGenerator, FeatureEncoding
 from ..embeddings.util import load_embedding
 from ..model_io import InputEncoding
@@ -72,8 +73,12 @@ class AbstractBOW(AbstractFeatureGenerator, abc.ABC):
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Numerical
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return {
             'dictionary-id': StringArgument(
                 name='dictionary-id',

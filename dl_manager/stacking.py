@@ -3,7 +3,7 @@ import warnings
 
 import numpy
 
-from .config import Config
+from .config.core import Config
 from . import classifiers
 from .model_io import OutputMode, InputEncoding
 

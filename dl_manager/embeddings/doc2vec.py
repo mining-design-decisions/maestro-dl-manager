@@ -4,7 +4,9 @@ from gensim.models.doc2vec import Doc2Vec as GensimDoc2Vec
 from gensim.models.doc2vec import TaggedDocument
 
 from .embedding_generator import AbstractEmbeddingGenerator
-from ..config import Argument, IntArgument, EnumArgument, Config
+from ..config.arguments import Argument, IntArgument, EnumArgument
+from ..config.core import Config
+from ..config.constraints import Constraint
 
 
 class Doc2VecGenerator(AbstractEmbeddingGenerator):
@@ -23,8 +25,12 @@ class Doc2VecGenerator(AbstractEmbeddingGenerator):
         )
         doc2vec_model.save(str(path))
 
-    @staticmethod
-    def get_arguments() -> dict[str, Argument]:
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return super(Doc2VecGenerator, Doc2VecGenerator).get_arguments() | {
             "vector-length": IntArgument(
                 name="vector-length",

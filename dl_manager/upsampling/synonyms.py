@@ -7,7 +7,9 @@ import issue_db_api
 import numpy
 from gensim import models
 
-from ..config import StringArgument, IntArgument
+from ..config.core import Config
+from ..config.arguments import Argument, StringArgument, IntArgument
+from ..config.constraints import Constraint
 from .base import AbstractUpSampler
 from ..feature_generators import generators, FeatureEncoding
 from ..embeddings.util import load_embedding
@@ -132,8 +134,12 @@ class SynonymUpSampler(AbstractUpSampler):
                 case _:
                     raise ValueError(f'Unhandled generator: {g}')
 
-    @staticmethod
-    def get_arguments():
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls):
         return super(SynonymUpSampler, SynonymUpSampler).get_arguments() | {
             'word-embedding': StringArgument(
                 name='word-embedding',

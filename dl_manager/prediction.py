@@ -17,7 +17,7 @@ import issue_db_api
 from .model_io import OutputMode, OutputEncoding
 from . import stacking
 from . import voting_util
-from .config import Config
+from .config.core import Config
 
 
 ##############################################################################

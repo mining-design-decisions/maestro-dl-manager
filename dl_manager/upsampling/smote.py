@@ -1,6 +1,9 @@
 import imblearn
 
-from ..config import EnumArgument
+from ..config.core import Config
+from ..config.arguments import Argument, EnumArgument
+from ..config.constraints import Constraint
+
 from .base import AbstractUpSampler
 from ..feature_generators import generators, FeatureEncoding
 from ..data_utilities import Features2Vector
@@ -45,9 +48,13 @@ class SmoteUpSampler(AbstractUpSampler):
     def upsample_class(self, indices, target, labels, keys, *features):
         raise NotImplementedError('upsample_class not used for smote upsampling')
 
-    @staticmethod
-    def get_arguments():
-        return {
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    def get_arguments(cls):
+        return super().get_arguments() | {
             'smote': EnumArgument(
                 name='smote',
                 description='Variant of the SMOTE algorithm to use',

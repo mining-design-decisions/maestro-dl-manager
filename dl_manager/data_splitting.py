@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 from . import kfold
 from . import custom_kfold
-from .config import Config
+from .config.core import Config
 
 ##############################################################################
 ##############################################################################

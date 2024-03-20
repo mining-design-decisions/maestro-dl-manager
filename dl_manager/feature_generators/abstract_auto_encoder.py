@@ -9,7 +9,8 @@ import issue_db_api
 import keras.models
 from .. import db_util
 from .generator import AbstractFeatureGenerator, FeatureEncoding
-from ..config import Argument, EnumArgument, IntArgument, QueryArgument
+from ..config.arguments import Argument, EnumArgument, IntArgument, QueryArgument
+from ..config.constraints import Constraint
 from ..model_io import InputEncoding
 from .bow_frequency import BOWFrequency
 from .bow_normalized import BOWNormalized
@@ -154,6 +155,10 @@ class AbstractAutoEncoder(AbstractFeatureGenerator, abc.ABC):
     @staticmethod
     def feature_encoding() -> FeatureEncoding:
         return FeatureEncoding.Numerical
+
+    @classmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
 
     @classmethod
     def get_arguments(cls) -> dict[str, Argument]:

@@ -8,14 +8,15 @@ import issue_db_api
 import nltk
 
 from .. import accelerator
-from ..config import (
-    Config,
+from ..config.core import Config
+from ..config.arguments import (
     BoolArgument,
     Argument,
     ArgumentConsumer,
     EnumArgument,
     StringArgument,
 )
+from ..config.constraints import Constraint
 from ..feature_generators.util.text_cleaner import FormattingHandling
 from ..feature_generators.util.text_cleaner import clean_issue_text
 from ..feature_generators.util.ontology import load_ontology, apply_ontologies_to_sentence
@@ -207,9 +208,14 @@ class AbstractEmbeddingGenerator(abc.ABC, ArgumentConsumer):
     ):
         pass
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def get_arguments() -> dict[str, Argument]:
+    def get_constraints(cls) -> list[Constraint]:
+        return super().get_constraints()
+
+    @classmethod
+    @abc.abstractmethod
+    def get_arguments(cls) -> dict[str, Argument]:
         return {
             "use-stemming": BoolArgument(
                 name="use-stemming",

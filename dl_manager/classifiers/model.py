@@ -13,7 +13,7 @@ import numpy
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from ..config import (
+from ..config.arguments import (
     Argument,
     BoolArgument,
     StringArgument,
@@ -23,6 +23,7 @@ from ..config import (
     IntArgument,
     NestedArgument,
 )
+from ..config.constraints import Constraint
 from ..model_io import InputEncoding, OutputEncoding
 
 
@@ -235,6 +236,11 @@ class AbstractModel(abc.ABC, ArgumentConsumer):
 
     @classmethod
     @abc.abstractmethod
+    def get_constraints(cls) -> list[Constraint]:
+        return []
+
+    @classmethod
+    @abc.abstractmethod
     def get_arguments(cls) -> dict[str, Argument]:
         """Return the names of all the hyper-parameters,
         possibly with a suggestion for the range of possible values.
@@ -332,6 +338,7 @@ class AbstractModel(abc.ABC, ArgumentConsumer):
                         ),
                     },
                 },
+                multi_valued=False
             ),
             "loss": EnumArgument(
                 default="crossentropy",

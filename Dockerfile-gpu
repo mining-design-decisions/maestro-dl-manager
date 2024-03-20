@@ -27,8 +27,6 @@ RUN cargo --version
 ENV XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/lib/cuda"
 
 # Copy important files
-COPY ./server.crt /app/server.crt
-COPY ./server.key /app/server.key
 COPY ./setup.py /app/setup.py
 COPY ./pyproject.toml /app/pyproject.toml
 WORKDIR /app
@@ -57,4 +55,4 @@ RUN python3.10 setup.py build_ext --inplace --verbose
 COPY ./dl_manager /app/dl_manager
 
 # Setup start-up command
-CMD ["python3.10", "-m", "dl_manager",  "--keyfile", "server.key", "--certfile", "server.crt"]
+CMD ["python3.10", "-m", "dl_manager"]

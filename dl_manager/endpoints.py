@@ -40,7 +40,7 @@ log = logger.get_logger("App Builder")
 
 class WebApp:
     def __init__(self, spec):
-        self._app = fastapi.FastAPI()
+        self._app = fastapi.FastAPI(root_path="/dl-manager")
         self._router = fastapi.APIRouter()
         self._callbacks = {}
         self._setup_callbacks = []
@@ -152,7 +152,7 @@ class WebApp:
     def register_setup_callback(self, func):
         self._setup_callbacks.append(func)
 
-    def deploy(self, port, keyfile, certfile):
+    def deploy(self, port):
         self._app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -165,8 +165,6 @@ class WebApp:
             self._app,
             host="0.0.0.0",
             port=port,
-            ssl_keyfile=keyfile,
-            ssl_certfile=certfile,
         )
 
     def execute_script(self, filename, *, invalidate_checkpoints):

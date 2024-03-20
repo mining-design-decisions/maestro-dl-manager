@@ -7,4 +7,18 @@ services:
       dockerfile: Dockerfile-gpu-alt
     image: dl-manager
     ports:
-      - '9011:9011'
+      - "9011:9011"
+    networks:
+      - maestro_traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dl-manager.rule=Host(`docker.localhost`)"
+      - "traefik.http.routers.dl-manager.rule=PathPrefix(`/dl-manager`)"
+      - "traefik.http.routers.dl-manager.entrypoints=websecure"
+      - "traefik.http.routers.dl-manager.tls=true"
+      - "traefik.http.routers.dl-manager.middlewares=dl-manager"
+      - "traefik.http.middlewares.dl-manager.stripprefix.prefixes=/dl-manager"
+
+networks:
+  maestro_traefik:
+    external: true

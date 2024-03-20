@@ -48,10 +48,10 @@ from . import prediction
 ##############################################################################
 
 
-def main(port, keyfile, certfile, script, invalidate_checkpoints):
+def main(port, script, invalidate_checkpoints):
     app = build_app()
     if not script:
-        app.deploy(port, keyfile, certfile)
+        app.deploy(port)
     else:
         app.execute_script(script, invalidate_checkpoints=invalidate_checkpoints)
 

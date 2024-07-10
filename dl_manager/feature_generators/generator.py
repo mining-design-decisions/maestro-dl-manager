@@ -14,9 +14,10 @@ import json
 import os.path
 import random
 import string
-
+import json
 import nltk
-
+import psycopg2
+from psycopg2 import sql
 import issue_db_api
 
 from ..config.arguments import (
@@ -374,20 +375,48 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
         }
 
     def load_data_from_db(self, query: issue_db_api.Query, metadata_attributes):
-        api: issue_db_api.IssueRepository = self.conf.get("system.storage.database-api")
-        issues = api.search(
-            query,
-            attributes=metadata_attributes + ["key", "summary", "description"],
-            load_labels=True,
+        # api: issue_db_api.IssueRepository = self.conf.get("system.storage.database-api")
+        # issues = api.search(
+        #     query,
+        #     attributes=metadata_attributes + ["key", "summary", "description"],
+        #     load_labels=True,
+        # )
+        
+        
+        # with open('dl_manager/feature_generators/data_json.json', 'r') as f:
+        #     issues = json.load(f)
+    
+        # Create list to hold issue objects
+        # issues = []
+        
+        # issues.sort(key=lambda i: i["id"])
+        
+        # PostgreSQL connection details (match the Docker Compose settings)
+        pg_conn = psycopg2.connect(
+            dbname="issues",
+            user="postgres",
+            password="pass",
+            host="localhost",
+            port="5432"
         )
-        issues.sort(key=lambda i: i.identifier)
+        pg_cursor = pg_conn.cursor()
+        
+        pg_cursor.execute(
+            "SELECT id, issue_id, body FROM issues_comments WHERE is_bot = false AND LENGTH(body) > 400 ORDER BY id LIMIT 2000;",
+        )
+        comments = pg_cursor.fetchall()
+        if not comments:
+            return
+        
+        print(comments[0][1], comments[0][0])
+
         labels = {
             "detection": [],
             "classification3": [],
             "classification3simplified": [],
             "classification8": [],
-            "issue_keys": [issue.key for issue in issues],
-            "issue_ids": [issue.identifier for issue in issues],
+            "issue_keys": [comment[1] for comment in comments],
+            "issue_ids": [comment[0] for comment in comments],
         }
         classification_indices = {
             "Existence": [],
@@ -396,7 +425,7 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             "Non-Architectural": [],
         }
         if self.pretrained is None or self.__pretrained_with_labels:
-            raw_labels = [issue.manual_label for issue in issues]
+            raw_labels = [issue.manual_label for issue in comments]
             for index, raw in enumerate(raw_labels):
                 self.update_labels(
                     labels,
@@ -407,13 +436,13 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
                     raw.property,
                 )
         texts = []
-        for issue in issues:
+        for issue in comments:
             # summary = x if (x := issue.pop('summary')) is not None else ''
             # description = x if (x := issue.pop('description')) is not None else ''
             # labels['issue_keys'].append(issue.pop('key'))
-            texts.append([issue.summary, issue.description])
+            texts.append([issue[2]])
         metadata = []
-        for issue in issues:
+        for issue in comments:
             metadata.append(
                 {attr: getattr(issue, attr) for attr in metadata_attributes}
             )
@@ -529,18 +558,20 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
                 name_lookup_file=self._name_lookup_file,
             )
 
-        if self.input_encoding_type() == InputEncoding.Text:
-            summaries, descriptions = (list(x) for x in zip(*texts))
-            if not self.__params["text-features-no-formatting-removal"]:
+        if False and self.input_encoding_type() == InputEncoding.Text:
+            # summaries, descriptions = (list(x) for x in zip(*texts))
+            # texts = (list(x) for x in zip(*texts))
+            texts = [text[0] for text in texts]
+            if not self.__params.get("text-features-no-formatting-removal",False):
                 handling_string = self.__params["formatting-handling"]
                 handling = FormattingHandling.from_string(handling_string)
-                summaries, descriptions = self.remove_formatting(
-                    summaries, descriptions, handling
+                texts, descriptions = self.remove_formatting(
+                    texts, [], handling
                 )
             # summaries, descriptions = (list(x) for x in zip(*texts))
             tokenized_issues = [
-                [f"{summary}. {description}"]
-                for summary, description in zip(summaries, descriptions)
+                [f"{text}"]
+                for text in texts
             ]
         else:
             # with cProfile.Profile() as p:
@@ -622,20 +653,18 @@ class AbstractFeatureGenerator(abc.ABC, ArgumentConsumer):
             )
             tagger = accelerator.Tagger(weights, classes, tagdict)
 
-            summaries, descriptions = (list(x) for x in zip(*issues))
+            # summaries = (list(x) for x in zip(*issues))
+            summaries = [text[0] for text in issues]
             summaries, descriptions = self.remove_formatting(
-                summaries, descriptions, handling
+                summaries, [], handling
             )
             summaries = [clean_issue_text(summary) for summary in summaries]
-            descriptions = [
-                clean_issue_text(description) for description in descriptions
-            ]
+            # descriptions = [
+            #     clean_issue_text(description) for description in descriptions
+            # ]
             texts = [
-                [
-                    nltk.word_tokenize(sent.lower() if use_lowercase else sent)
-                    for sent in itertools.chain(summary, description)
-                ]
-                for summary, description in zip(summaries, descriptions)
+                [nltk.word_tokenize(sent.lower() if use_lowercase else sent) for sent in summary]
+                for summary in summaries
             ]
             # old version which operated on tokens. No clue why I did that
             # texts = replace_technologies(

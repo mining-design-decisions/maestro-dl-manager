@@ -18,6 +18,8 @@ services:
       - "traefik.http.routers.dl-manager.tls=true"
       - "traefik.http.routers.dl-manager.middlewares=dl-manager"
       - "traefik.http.middlewares.dl-manager.stripprefix.prefixes=/dl-manager"
+    environment:
+      - DL_MANAGER_ALLOW_SELF_SIGNED_CERTIFICATE=TRUE
 
 networks:
   maestro_traefik:

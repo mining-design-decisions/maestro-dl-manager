@@ -41,6 +41,7 @@ def get_api_spec():
             'train': get_train_endpoint_data(),
             'run': get_run_endpoint_data(),
             'predict': get_prediction_endpoint_data(),
+            'predict-comments': get_comments_prediction_endpoint_data(),
             'generate-embedding': get_embedding_endpoint_data(),
             'generate-embedding-internal': get_internal_embedding_endpoint_data(),
             'metrics': get_metrics_endpoint_data(),
@@ -558,12 +559,39 @@ def get_prediction_endpoint_data():
         'args': _get_prediction_args(),
         'constraints': _get_prediction_endpoint_constraints()
     }
-
+    
+def get_comments_prediction_endpoint_data():
+    return {
+        'name': 'predict-comments',
+        'help': 'Use an existing classifier to make predictions for comments on new data.',
+        'private': False,
+        'args': _get_comments_prediction_args(),
+        'constraints': _get_comments_prediction_endpoint_constraints()
+    }
+def _get_comments_prediction_endpoint_constraints() -> list[Constraint]:
+    return []
 
 def _get_prediction_endpoint_constraints() -> list[Constraint]:
     return []
 
-
+def _get_comments_prediction_args() -> dict[str, Argument]:
+    return _get_database_args() | {
+        'model': StringArgument(
+            name='model',
+            description='ID of the model to predict with'
+        ),
+        'version': StringArgument(
+            name='version',
+            description='ID of the version of the model to predict with. '
+                        'Use `most-recent` for most recently trained version.',
+            default='most-recent'
+        ),
+        'data-query': QueryArgument(
+            name='data-query',
+            description='Query used to retrieve data to compute predictions for.'
+        )
+    }
+    
 def _get_prediction_args() -> dict[str, Argument]:
     return _get_database_args() | {
         'model': StringArgument(

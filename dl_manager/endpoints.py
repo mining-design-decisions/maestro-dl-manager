@@ -49,6 +49,8 @@ class WebApp:
         self._register_system_properties()
         self._build_endpoints(self._spec['commands'].values())
         self._add_static_endpoints()
+        self._app.include_router(self._router)
+        
 
     def _register_system_properties(self):
         self._config_factory.register_namespace("system.storage")
@@ -227,11 +229,13 @@ class _Endpoint:
             auth = payload["auth"]
             # conf.set('system.security.db-username', auth['username'])
             # conf.set('system.security.db-password', auth['password'])
+            print("authInPayload")
             conf.set("system.security.db-token", auth["token"])
         return self.run(conf, payload["config"])
 
     def run(self, conf: Config, payload):
         try:
+            print(self.name,{f'{self.name}.0': payload},)
             args = self._parser.validate({f'{self.name}.0': payload})[f'{self.name}'][0]
         except ArgumentParsingError as e:
             raise fastapi.HTTPException(

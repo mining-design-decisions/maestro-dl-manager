@@ -40,7 +40,7 @@ from . import metrics
 log = get_logger("CLI")
 
 from . import prediction
-
+import uvicorn
 
 ##############################################################################
 ##############################################################################
@@ -60,11 +60,19 @@ def main(port, script, invalidate_checkpoints):
 def build_app():
     app = WebApp(get_api_spec())
     setup_app_constraints(app)
-    return app
+    return app._app
 
+def run_dev():
+    uvicorn.run(
+            "dl_manager.cli:build_app",
+            host="0.0.0.0",
+            port=9011,
+            reload=True
+        )
 
 def setup_app_constraints(app):
     app.register_callback("predict", run_prediction_command)
+    app.register_callback("predict-comments", run_comment_prediction_command)
     app.register_callback("run", run_classification_command)
     app.register_callback("train", run_training_session)
     app.register_callback("generate-embedding", run_embedding_generation_command)
@@ -119,6 +127,7 @@ def setup_storage(conf: Config):
         "run",
         "train",
         "predict",
+        "predict-comments",
         "generate-embedding",
         "generate-embedding-internal",
         "metrics",
@@ -131,9 +140,7 @@ def setup_storage(conf: Config):
             api = issue_db_api.IssueRepository.from_token(
                 url=conf.get("system.storage.database-url"),
                 token=conf.get("system.security.db-token"),
-                allow_self_signed_certificates=conf.get(
-                    "system.security.allow-self-signed-certificates"
-                ),
+                allow_self_signed_certificates=True,
                 label_caching_policy="use_local_after_load",
             )
         except issue_db_api.InvalidCredentialsException:
@@ -530,24 +537,24 @@ def _get_model_factory(conf: Config):
 def run_prediction_command(conf: Config):
     # Step 1: Load model data
     data_query = conf.get("predict.data-query")
-    log.info(f"Prediction query: {data_query}")
+    # log.info(f"Prediction query: {data_query}")
     model_id: str = conf.get("predict.model")
     model_version = conf.get("predict.version")
-    # Load model from DB
-    db: issue_db_api.IssueRepository = conf.get("system.storage.database-api")
-    model = db.get_model_by_id(model_id)
-    if model_version == "most-recent":
-        trained_model = max(model.versions, key=lambda v: v.version_id)
-        model_version = trained_model.version_id
-    else:
-        trained_model = model.get_version_by_id(model_version)
-    trained_model.download(
-        os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE)
-    )
-    model_manager.load_model_from_zip(
-        os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE),
-        conf,
-    )
+    # # Load model from DB
+    # db: issue_db_api.IssueRepository = conf.get("system.storage.database-api")
+    # model = db.get_model_by_id(model_id)
+    # if model_version == "most-recent":
+    #     trained_model = max(model.versions, key=lambda v: v.version_id)
+    #     model_version = trained_model.version_id
+    # else:
+    #     trained_model = model.get_version_by_id(model_version)
+    # trained_model.download(
+    #     os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE)
+    # )
+    # model_manager.load_model_from_zip(
+    #     os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE),
+    #     conf,
+    # )
     # Load model from file
     model = (
         pathlib.Path(os.path.join(conf.get("system.os.scratch-directory")))
@@ -561,27 +568,28 @@ def run_prediction_command(conf: Config):
 
     # Step 2: Load data
     datasets = []
-    warnings.warn("The predict command does not cache features!")
-    auxiliary_files = {
-        file: os.path.join(model, path)
-        for file, path in model_metadata["auxiliary-files"].items()
-    }
-    conf.get("system.storage.auxiliary-map").update(auxiliary_files)
+    # warnings.warn("The predict command does not cache features!")
+    # auxiliary_files = {
+    #     file: os.path.join(model, path)
+    #     for file, path in model_metadata["auxiliary-files"].items()
+    # }
+    # conf.get("system.storage.auxiliary-map").update(auxiliary_files)
     ids = None
-    for generator in model_metadata["feature-generators"]:
-        with open(model / generator) as file:
-            generator_data = json.load(file)
-        generator_class = feature_generators.generators[generator_data["generator"]]
-        generator = generator_class(
-            conf, pretrained_generator_settings=generator_data["settings"]
-        )
-        data_stuff = generator.generate_features(data_query, output_mode.name)
-        if ids is None:
-            ids = data_stuff.ids
-        if type(data_stuff.features) is dict:
-            datasets.append(data_stuff.features)
-        else:
-            datasets.append(numpy.asarray(data_stuff.features))
+    # for generator in model_metadata["feature-generators"]:
+    #     with open(model / generator) as file:
+    #         generator_data = json.load(file)
+    #     generator_class = feature_generators.generators[generator_data["generator"]]
+    #     generator = generator_class(
+    #         conf, pretrained_generator_settings=generator_data["settings"]
+    #     )
+    #     data_stuff = generator.generate_features(data_query, output_mode.name)
+    #     if ids is None:
+    #         ids = data_stuff.ids
+    #     if type(data_stuff.features) is dict:
+    #         datasets.append(data_stuff.features)
+    #     else:
+    #         datasets.append(numpy.asarray(data_stuff.features))
+    # print("worked till here",model)
 
     # Step 3: Load the model and get the predictions
     match model_metadata["model-type"]:
@@ -621,7 +629,73 @@ def run_prediction_command(conf: Config):
         case _ as tp:
             raise ValueError(f"Invalid model type: {tp}")
 
+def run_comment_prediction_command(conf: Config):
+    # Step 1: Load model data
+    data_query = conf.get("predict-comments.data-query")
+    log.info(f"Prediction query: {data_query}")
+    model_id: str = conf.get("predict-comments.model")
+    model_version = conf.get("predict-comments.version")
+    # Load model from DB
+    # db: issue_db_api.IssueRepository = conf.get("system.storage.database-api")
+    # model = db.get_model_by_id(model_id)
+    # if model_version == "most-recent":
+    #     trained_model = max(model.versions, key=lambda v: v.version_id)
+    #     model_version = trained_model.version_id
+    # else:
+    #     trained_model = model.get_version_by_id(model_version)
+    # trained_model.download(
+    #     os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE)
+    # )
+    # model_manager.load_model_from_zip(
+    #     os.path.join(conf.get("system.os.scratch-directory"), model_manager.MODEL_FILE),
+    #     conf,
+    # )
+    # Load model from file
+    model = (
+        pathlib.Path(os.path.join(conf.get("system.os.scratch-directory")))
+        / model_manager.MODEL_DIR
+    )
+    with open(model / "model.json") as file:
+        model_metadata = json.load(file)
+    output_mode = OutputMode.from_string(
+        model_metadata["model-settings"]["output_mode"]
+    )
 
+    # # Step 2: Load data
+    datasets = []
+    # warnings.warn("The predict command does not cache features!")
+    auxiliary_files = {
+        file: os.path.join(model, path)
+        for file, path in model_metadata["auxiliary-files"].items()
+    }
+    conf.get("system.storage.auxiliary-map").update(auxiliary_files)
+    ids = None
+    for generator in model_metadata["feature-generators"]:
+        with open(model / generator) as file:
+            generator_data = json.load(file)
+        generator_class = feature_generators.generators[generator_data["generator"]]
+        generator = generator_class(
+            conf, pretrained_generator_settings=generator_data["settings"]
+        )
+        data_stuff = generator.generate_features(data_query, output_mode.name)
+        if ids is None:
+            ids = data_stuff.ids
+        if type(data_stuff.features) is dict:
+            datasets.append(data_stuff.features)
+        else:
+            datasets.append(numpy.asarray(data_stuff.features))
+
+    # Step 3: Load the model and get the predictions
+    prediction.predict_comments_simple_model(
+                model,
+                model_metadata,
+                datasets,
+                output_mode,
+                ids,
+                model_id,
+                model_version,
+                conf=conf,
+            )
 ##############################################################################
 ##############################################################################
 # Command Dispatch - Metric Calculation

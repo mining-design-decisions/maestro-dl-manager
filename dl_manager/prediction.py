@@ -4,7 +4,10 @@
 ##############################################################################
 
 from copy import copy
+import json
 import pathlib
+
+import psycopg2
 
 import numpy
 import tensorflow as tf
@@ -89,6 +92,44 @@ def predict_simple_model(path: pathlib.Path,
                        model_version,
                        probabilities=predictions,
                        conf=conf)
+
+def predict_comments_simple_model(path: pathlib.Path,
+                         model_metadata,
+                         features,
+                         output_mode,
+                         issue_ids,
+                         model_id,
+                         model_version, *,
+                         conf: Config):
+    _check_output_mode(output_mode)
+    if model_metadata['model-settings']['classifier'][0] == 'Bert':
+        model = TFAutoModelForSequenceClassification.from_pretrained(path / model_metadata['model-path'])
+        model.classifier.activation = tf.keras.activations.sigmoid
+    else:
+        model = load_model(path / model_metadata['model-path'])
+    if len(features) == 1:
+        features = features[0]
+
+    predictions = model.predict(features)
+    if type(predictions) is TFSequenceClassifierOutput:
+        predictions = predictions['logits']
+
+    if output_mode.output_encoding == OutputEncoding.Binary and output_mode.output_size == 1:
+        canonical_predictions = round_binary_predictions(predictions)
+    elif output_mode.output_encoding == OutputEncoding.Binary:
+        canonical_predictions = round_binary_predictions_no_flatten(predictions)
+    else:
+        indices = onehot_indices(predictions)
+        canonical_predictions = _predictions_to_canonical(output_mode, indices)
+    _store_predictions(canonical_predictions,
+                       output_mode,
+                       issue_ids,
+                       model_id,
+                       model_version,
+                       probabilities=predictions,
+                       conf=conf)
+
+
 
 
 ##############################################################################
@@ -211,7 +252,7 @@ def _store_predictions(predictions,
                        *,
                        probabilities=None,
                        conf: Config):
-    predictions_by_id = {}
+    predictions_by_id = {} 
     for i, (pred, issue_id) in enumerate(zip(predictions, issue_ids)):
         match output_mode:
             case OutputMode.Detection:
@@ -290,7 +331,39 @@ def _store_predictions(predictions,
                         'confidence': float(probabilities[i][7]) if probabilities is not None else None
                     }
                 }
+    print(predictions,output_mode,issue_ids,model_id,model_version)
+    print(predictions_by_id)
+    insert_classification_results_bulk(predictions_by_id,model_id,model_version)
+    return
     db: issue_db_api.IssueRepository = conf.get('system.storage.database-api')
     model = db.get_model_by_id(model_id)
     version = model.get_version_by_id(model_version)
     version.predictions = predictions_by_id
+    
+def insert_classification_results_bulk(results,model_id, model_version):
+    
+    sql = """
+    INSERT INTO classification_results (issue_comment_id, model_name, model_version, classification_result)
+    VALUES (%s, %s, %s, %s)
+    """
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            dbname="issues",
+            user="postgres",
+            password="pass",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
+        cur.executemany(sql, [
+            (issue_comment_id, model_id, model_version, json.dumps(classification_result))
+            for issue_comment_id, classification_result in results.items()
+        ])
+        cur.close()
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()

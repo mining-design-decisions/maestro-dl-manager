@@ -1,0 +1,19 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Module",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "dl_manager",
+            "python":"/home/ajay/Desktop/maestro/maestro-dl-manager/env/bin/python3.10",
+            // "env": {
+            //     // "python.pythonPath": "maestro-dl-manager/env/bin/python3"
+            //     "PYTHONPATH": "env/lib/python3.10/site-packages"  // Path to your virtual environment packages
+            // }
+        }
+    ]
+}

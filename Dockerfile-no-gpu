@@ -36,7 +36,6 @@ RUN apt-get -y install libssl-dev
 # Get list of dependencies and install them
 RUN python3.10 setup.py sdist
 RUN python3.10 -m pip install -r dl_manager.egg-info/requires.txt
-
 # Build acceleration module
 COPY ./dl_manager/accelerator /app/dl_manager/accelerator
 COPY ./dl_manager/feature_generators/util/technologies.csv /app/dl_manager/feature_generators/util/technologies.csv

@@ -1,5 +1,5 @@
 import argparse
-
+import uvicorn
 import fastapi
 
 from . import run_cli_app

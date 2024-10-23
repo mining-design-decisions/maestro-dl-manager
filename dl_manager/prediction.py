@@ -331,14 +331,14 @@ def _store_predictions(predictions,
                         'confidence': float(probabilities[i][7]) if probabilities is not None else None
                     }
                 }
-    print(predictions,output_mode,issue_ids,model_id,model_version)
-    print(predictions_by_id)
+    # print(predictions,output_mode,issue_ids,model_id,model_version)
+    # print(predictions_by_id)
     insert_classification_results_bulk(predictions_by_id,model_id,model_version)
     return
-    db: issue_db_api.IssueRepository = conf.get('system.storage.database-api')
-    model = db.get_model_by_id(model_id)
-    version = model.get_version_by_id(model_version)
-    version.predictions = predictions_by_id
+    # db: issue_db_api.IssueRepository = conf.get('system.storage.database-api')
+    # model = db.get_model_by_id(model_id)
+    # version = model.get_version_by_id(model_version)
+    # version.predictions = predictions_by_id
     
 def insert_classification_results_bulk(results,model_id, model_version):
     

@@ -229,7 +229,6 @@ class _Endpoint:
             auth = payload["auth"]
             # conf.set('system.security.db-username', auth['username'])
             # conf.set('system.security.db-password', auth['password'])
-            print("authInPayload")
             conf.set("system.security.db-token", auth["token"])
         return self.run(conf, payload["config"])
 
